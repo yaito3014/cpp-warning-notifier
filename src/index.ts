@@ -5,11 +5,11 @@ const octokit = new Octokit();
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
-// const { data: pullRequest } = await octokit.rest.pulls.get({
-//   owner,
-//   repo,
-//   pull_number: pull_request_number,
-// });
+const { data: pullRequest } = await octokit.rest.pulls.get({
+  owner,
+  repo,
+  pull_number: pull_request_number,
+});
 
 const { data: actions } = await octokit.rest.actions.listWorkflowRunsForRepo({
   owner,
@@ -17,7 +17,8 @@ const { data: actions } = await octokit.rest.actions.listWorkflowRunsForRepo({
 });
 
 const workflow_runs = actions.workflow_runs.filter(
-  (action) => action.status === "completed"
+  (action) =>
+    action.head_branch === pullRequest.head.ref && action.status === "completed"
 );
 
 if (workflow_runs.length === 0) {
