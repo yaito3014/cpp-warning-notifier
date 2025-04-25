@@ -15,10 +15,10 @@ jobs:
       compilation_outputs: ${{ steps.compile.outputs.result }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/github-script@v6
-        with:
-          script: |
-            return require('child_process').spawnSync('g++ -Wall -o test source.cpp').stderr
+      - run: |
+          echo "result=<<EOF" >> $GITHUB_OUTPUT
+          g++ -o test source.cpp 2>&1 >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
         id: compile
       - run: ./test
 
