@@ -6,11 +6,11 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
-const appId = parseInt(process.env.APP_ID!);
-const privateKey = process.env.PRIVATE_KEY!;
-const installationId = parseInt(process.env.INSTALLATION_ID!);
-const clientId = process.env.CLIENT_ID!;
-const clientSecret = process.env.CLIENT_SECRET!;
+const appId = parseInt(process.env.INPUT_APP_ID!);
+const privateKey = process.env.INPUT_PRIVATE_KEY!;
+const installationId = parseInt(process.env.INPUT_INSTALLATION_ID!);
+const clientId = process.env.INPUT_CLIENT_ID!;
+const clientSecret = process.env.INPUT_CLIENT_SECRET!;
 
 console.log(appId, installationId, clientId);
 
