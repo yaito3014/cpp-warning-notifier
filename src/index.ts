@@ -1,7 +1,7 @@
 import { Octokit } from "@octokit/action";
 import { readFileSync } from "fs";
 
-const compilation_output = readFileSync("compilation.log").toString;
+const compilation_output = readFileSync("compilation.log").toString();
 
 console.log("Parsed compilation output:", compilation_output);
 
