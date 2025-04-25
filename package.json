@@ -1,0 +1,13 @@
+{
+  "name": "cpp-warning-notifier",
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@octokit/action": "^7.0.2"
+  },
+  "devDependencies": {
+    "@octokit/tsconfig": "^4.0.0",
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.2"
+  }
+}
