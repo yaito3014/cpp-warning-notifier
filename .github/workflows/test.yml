@@ -9,7 +9,16 @@ on:
       - main
 
 jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -Wall -Wextra -o test source.cpp
+      - run: ./test
+
   test:
+    needs:
+      - compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
