@@ -2,6 +2,9 @@
   "name": "cpp-warning-notifier",
   "type": "module",
   "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
     "@octokit/action": "^7.0.2"
   },

@@ -1,3 +1,6 @@
 {
-  "extends": "@octokit/tsconfig"
+  "extends": "@octokit/tsconfig",
+  "compilerOptions": {
+    "outDir": "dist"
+  }
 }
