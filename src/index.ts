@@ -39,7 +39,7 @@ for (const file of readdirSync(".")) {
   }
 }
 
-if (body !== null) {
+if (body) {
   octokit.rest.issues.createComment({
     owner,
     repo,
