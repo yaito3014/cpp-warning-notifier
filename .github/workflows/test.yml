@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           cmake -S . -B build
-          echo -e "#cppwarningnotifier commit=${{ github.sha }}\n" >> compilation.log
+          echo "#cppwarningnotifier commit=${{ github.sha }}" >> compilation.log
           cmake --build build >> compilation.log 2>&1
       - uses: actions/upload-artifact@v4
         with:
