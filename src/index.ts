@@ -21,6 +21,7 @@ const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 let body: string | null = null;
 
 for (const file of readdirSync(".")) {
+  console.log("looking ", file, ", deciding whether skip or not...");
   if (!file.startsWith("compilation") || !file.endsWith(".log")) {
     continue;
   }
