@@ -43,6 +43,13 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
+if (error_or_warnings.length === 0) {
+  console.log("No errors or warnings, exiting.");
+  process.exit(0);
+}
+
+let body = JSON.stringify(error_or_warnings, null, "  ");
+
 const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
@@ -52,9 +59,5 @@ octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `compilation output is: \n\n\`\`\`json\n${JSON.stringify(
-    error_or_warnings,
-    null,
-    "  "
-  )}\n\`\`\``,
+  body: `compilation output is: \n\n\`\`\`\n${body}\n\`\`\``,
 });
