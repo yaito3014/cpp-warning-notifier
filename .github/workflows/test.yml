@@ -40,7 +40,7 @@ jobs:
       - run: node dist/index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_ID: ${{ secrets.APP_ID }}
+          APP_ID: ${{ env.APP_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CLIENT_ID: ${{ env.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
