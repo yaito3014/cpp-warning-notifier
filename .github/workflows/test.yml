@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           g++ -o test source.cpp 2>&1 > compilation.log
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: compilation_log
           path: compilation.log
@@ -32,7 +32,7 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: compilation_log
       - run: node dist/index.js
