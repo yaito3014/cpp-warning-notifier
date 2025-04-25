@@ -8467,6 +8467,7 @@ for (const file of readdirSync(".")) {
     if (!file.startsWith("compilation") || !file.endsWith(".log")) {
         continue;
     }
+    console.log("found ", file, ", detecting warnings...");
     const compilation_output = readFileSync(file).toString();
     const regex = /warning( .\d+)?:/;
     const match_result = compilation_output.match(regex);
@@ -8480,7 +8481,9 @@ for (const file of readdirSync(".")) {
         }
     }
 }
+console.log("body is", body);
 if (body) {
+    console.log("leaving comment");
     octokit.rest.issues.createComment({
         owner,
         repo,
