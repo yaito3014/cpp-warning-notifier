@@ -18,7 +18,7 @@ const octokit = await app.getInstallationOctokit(installationId);
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
-let body = "";
+let body: string | null = null;
 
 for (const file of readdirSync(".")) {
   if (!file.startsWith("compilation") || !file.endsWith(".log")) {
@@ -32,13 +32,18 @@ for (const file of readdirSync(".")) {
   const match_result = compilation_output.match(regex);
 
   if (match_result && match_result.length > 0) {
-    body += `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
+    body =
+      body ||
+      body +
+        `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
   }
 }
 
-octokit.rest.issues.createComment({
-  owner,
-  repo,
-  issue_number: pull_request_number,
-  body,
-});
+if (body !== null) {
+  octokit.rest.issues.createComment({
+    owner,
+    repo,
+    issue_number: pull_request_number,
+    body,
+  });
+}
