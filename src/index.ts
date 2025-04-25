@@ -1,6 +1,12 @@
 import { Octokit } from "@octokit/action";
 import { readFileSync } from "fs";
 
+// if the action is triggered by not a pull request, exit
+if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
+  console.log("Not a pull request, exiting.");
+  process.exit(0);
+}
+
 const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
