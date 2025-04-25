@@ -8478,11 +8478,12 @@ const readdirRecursively = (dir, files = []) => {
     return files;
 };
 for (const file of readdirRecursively(".")) {
-    console.log("looking ", file, ", deciding whether skip or not...");
-    if (!file.startsWith("compilation") || !file.endsWith(".log")) {
+    console.log("looking", file, "deciding whether skip or not...");
+    const res = file.match(/compilation.*\.log$/);
+    if (res === null || res.length === 0) {
         continue;
     }
-    console.log("found ", file, ", detecting warnings...");
+    console.log("found", file, "detecting warnings...");
     const compilation_output = readFileSync(file).toString();
     const regex = /warning( .\d+)?:/;
     const match_result = compilation_output.match(regex);
