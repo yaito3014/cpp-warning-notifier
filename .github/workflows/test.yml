@@ -42,8 +42,8 @@ jobs:
       - run: node dist/index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_ID: ${{ env.APP_ID }}
+          APP_ID: ${{ vars.APP_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          INSTALLATION_ID: ${{ env.INSTALLATION_ID }}
-          CLIENT_ID: ${{ env.CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          INSTALLATION_ID: ${{ vars.INSTALLATION_ID }}
+          CLIENT_ID: ${{ vars.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET}}
