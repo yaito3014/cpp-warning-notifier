@@ -4,6 +4,7 @@ const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
+const compilation_output = process.env.COMPILATION_OUTPUT!;
 
 const { data: pullRequest } = await octokit.rest.pulls.get({
   owner,
@@ -35,6 +36,6 @@ if (workflow_runs.length === 0) {
     owner,
     repo,
     issue_number: pull_request_number,
-    body: `The latest workflow run for this pull request is [#${latest.run_number}](${latest.html_url})`,
+    body: `The latest workflow run for this pull request is [#${latest.run_number}](${latest.html_url}), and the compilation output is:\n\n\`\`\`\n${compilation_output}\n\`\`\``,
   });
 }

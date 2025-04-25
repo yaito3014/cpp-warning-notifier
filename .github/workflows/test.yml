@@ -11,15 +11,20 @@ on:
 jobs:
   compile:
     runs-on: ubuntu-latest
+    outputs:
+      compilation_outputs: ${{ steps.compile.outputs }}
     steps:
       - uses: actions/checkout@v4
-      - run: g++ -Wall -Wextra -o test source.cpp
+      - run: g++ -Wall -Wextra -o test source.cpp 2 > $GITHUB_OUTPUT
+        id: compile
       - run: ./test
 
   test:
     needs:
       - compile
     runs-on: ubuntu-latest
+    outputs:
+      compilation_outputs: ${{ needs.compile.outputs.compilation_outputs }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,3 +35,4 @@ jobs:
       - run: node dist/index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPILATION_OUTPUTS: ${{ needs.compile.outputs.compilation_outputs }}
