@@ -1,10 +1,10 @@
 import { Octokit } from "@octokit/action";
 import { readFileSync } from "fs";
 
-import { parseString } from "gcc-output-parser";
+import parser from "gcc-output-parser";
 
 const compilation_output = readFileSync("compilation.log");
-const outputs = parseString(compilation_output);
+const outputs = parser.parseString(compilation_output);
 
 console.log("Parsed compilation output:", outputs);
 
