@@ -8453,11 +8453,13 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
     console.log("not a pull request, exiting.");
     process.exit(0);
 }
-const appId = parseInt(process.env.APP_ID);
-const privateKey = process.env.PRIVATE_KEY;
-const installationId = parseInt(process.env.INSTALLATION_ID);
-const clientId = process.env.CLIENT_ID;
-const clientSecret = process.env.CLIENT_SECRET;
+console.log(process.env.APP_ID);
+console.log(process.env.INPUT_APP_ID);
+const appId = parseInt(process.env.INPUT_APP_ID);
+const privateKey = process.env.INPUT_PRIVATE_KEY;
+const installationId = parseInt(process.env.INPUT_INSTALLATION_ID);
+const clientId = process.env.INPUT_CLIENT_ID;
+const clientSecret = process.env.INPUT_CLIENT_SECRET;
 console.log(appId, installationId, clientId);
 const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
 const octokit = await app.getInstallationOctokit(installationId);
