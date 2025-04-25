@@ -23,8 +23,6 @@ jobs:
     needs:
       - compile
     runs-on: ubuntu-latest
-    outputs:
-      compilation_outputs: ${{ needs.compile.outputs.compilation_outputs }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
