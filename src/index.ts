@@ -6,16 +6,11 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
-console.log(process.env.APP_ID);
-console.log(process.env.INPUT_APP_ID);
-
 const appId = parseInt(process.env.INPUT_APP_ID!);
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 const installationId = parseInt(process.env.INPUT_INSTALLATION_ID!);
 const clientId = process.env.INPUT_CLIENT_ID!;
 const clientSecret = process.env.INPUT_CLIENT_SECRET!;
-
-console.log(appId, installationId, clientId);
 
 const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
 const octokit = await app.getInstallationOctokit(installationId);
