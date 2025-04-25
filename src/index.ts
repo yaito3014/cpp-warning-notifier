@@ -1,39 +1,21 @@
 import { Octokit } from "@octokit/action";
+import { readFileSync } from "fs";
+
+// if the action is triggered by not a pull request, exit
+if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
+  console.log("Not a pull request, exiting.");
+  process.exit(0);
+}
 
 const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
-
-const { data: pullRequest } = await octokit.rest.pulls.get({
-  owner,
-  repo,
-  pull_number: pull_request_number,
-});
-
-const { data: actions } = await octokit.rest.actions.listWorkflowRunsForRepo({
-  owner,
-  repo,
-});
-
-const workflow_runs = actions.workflow_runs.filter((action) => {
-  return (
-    action.head_branch === pullRequest.head.ref &&
-    action.head_sha === pullRequest.head.sha &&
-    action.status === "completed"
-  );
-});
-
-const latest = workflow_runs.reduce((latest, action) => {
-  if (!latest) return action;
-  return new Date(action.created_at) > new Date(latest.created_at)
-    ? action
-    : latest;
-});
+const compilation_output = readFileSync("compilation.log");
 
 octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `The latest workflow run for this pull request is [#${latest.run_number}](${latest.html_url})`,
+  body: `compilation output is:\n\n\`\`\`\n${compilation_output}\n\`\`\``,
 });
