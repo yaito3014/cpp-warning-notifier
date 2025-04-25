@@ -6,8 +6,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@octokit/action": "^7.0.2",
-    "gcc-output-parser": "^0.0.5"
+    "@octokit/action": "^7.0.2"
   },
   "devDependencies": {
     "@octokit/tsconfig": "^4.0.0",
