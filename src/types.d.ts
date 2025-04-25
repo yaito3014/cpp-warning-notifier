@@ -1,5 +1,5 @@
 declare module "gcc-output-parser" {
-  export function parseString(input: string | Buffer): Array<{
+  export type OutputEntry = {
     filename: string;
     line: number;
     column: number;
@@ -11,5 +11,6 @@ declare module "gcc-output-parser" {
     startIndex: number;
     endIndex: number;
     parentFunction: string | undefined;
-  }>;
+  };
+  export function parseString(input: string | Buffer): Array<OutputEntry>;
 }
