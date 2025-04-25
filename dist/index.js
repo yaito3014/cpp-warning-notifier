@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
@@ -8463,7 +8463,21 @@ const octokit = await app.getInstallationOctokit(installationId);
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/");
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]);
 let body = null;
-for (const file of readdirSync(".")) {
+const readdirRecursively = (dir, files = []) => {
+    const dirents = readdirSync(dir, { withFileTypes: true });
+    const dirs = [];
+    for (const dirent of dirents) {
+        if (dirent.isDirectory())
+            dirs.push(`${dir}/${dirent.name}`);
+        if (dirent.isFile())
+            files.push(`${dir}/${dirent.name}`);
+    }
+    for (const d of dirs) {
+        files = readdirRecursively(d, files);
+    }
+    return files;
+};
+for (const file of readdirRecursively(".")) {
     console.log("looking ", file, ", deciding whether skip or not...");
     if (!file.startsWith("compilation") || !file.endsWith(".log")) {
         continue;
