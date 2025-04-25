@@ -1,12 +1,19 @@
-import { Octokit } from "@octokit/action";
 import { readdirSync, readFileSync } from "fs";
+import { App } from "octokit";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
   process.exit(0);
 }
 
-const octokit = new Octokit();
+const appId = parseInt(process.env.APP_ID!);
+const privateKey = process.env.PRIVATE_KEY!;
+const installationId = appId;
+const clientId = process.env.CLIENT_ID!;
+const clientSecret = process.env.CLIENT_SECRET!;
+
+const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
+const octokit = await app.getInstallationOctokit(installationId);
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
@@ -15,7 +22,6 @@ let body = "";
 
 for (const file of readdirSync(".")) {
   if (!file.startsWith("compilation") || !file.endsWith(".log")) {
-    console.log(`skipping ${file}`);
     continue;
   }
 
