@@ -34,13 +34,15 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
 };
 
 for (const file of readdirRecursively(".")) {
-  console.log("looking ", file, ", deciding whether skip or not...");
+  console.log("looking", file, "deciding whether skip or not...");
 
-  if (!file.match(/compilation.*\.log$/)) {
+  const res = file.match(/compilation.*\.log$/);
+
+  if (res === null || res.length === 0) {
     continue;
   }
 
-  console.log("found ", file, ", detecting warnings...");
+  console.log("found", file, "detecting warnings...");
 
   const compilation_output = readFileSync(file).toString();
 
