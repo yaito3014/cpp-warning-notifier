@@ -21,7 +21,7 @@ jobs:
           path: compilation.log
       - run: ./test
 
-  test:
+  run-notifier:
     needs:
       - compile
     runs-on: ubuntu-latest
