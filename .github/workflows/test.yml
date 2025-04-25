@@ -15,7 +15,7 @@ jobs:
       compilation_outputs: ${{ steps.compile.outputs }}
     steps:
       - uses: actions/checkout@v4
-      - run: g++ -Wall -Wextra -o test source.cpp 2 > $GITHUB_OUTPUT
+      - run: g++ -Wall -Wextra -o test source.cpp 2> $GITHUB_OUTPUT
         id: compile
       - run: ./test
 
