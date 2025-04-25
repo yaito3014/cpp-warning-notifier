@@ -52,7 +52,9 @@ octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `compilation output is: \n\n\`\`\`json\n${
-    (JSON.stringify(error_or_warnings), null, "\t")
-  }\n\`\`\``,
+  body: `compilation output is: \n\n\`\`\`json\n${JSON.stringify(
+    error_or_warnings,
+    null,
+    "\t"
+  )}\n\`\`\``,
 });
