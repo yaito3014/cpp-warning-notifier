@@ -8471,10 +8471,13 @@ for (const file of readdirSync(".")) {
     const regex = /warning( .\d+)?:/;
     const match_result = compilation_output.match(regex);
     if (match_result && match_result.length > 0) {
-        body =
-            body ||
-                body +
-                    `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
+        const append_string = `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
+        if (body) {
+            body += append_string;
+        }
+        else {
+            body = append_string;
+        }
     }
 }
 if (body) {
