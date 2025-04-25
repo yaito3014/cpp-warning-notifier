@@ -1,0 +1,27 @@
+name: CppWarningNotifier
+author: yaito3014
+description: Notifies about C++ warnings in GitHub Actions
+
+inputs:
+  GITHUB_TOKEN:
+    description: GitHub token for authentication
+    required: true
+  APP_ID:
+    description: GitHub App ID
+    required: true
+  PRIVATE_KEY:
+    description: Private key for GitHub App
+    required: true
+  CLIENT_ID:
+    description: Client ID for GitHub App
+    required: true
+  CLIENT_SECRET:
+    description: Client secret for GitHub App
+    required: true
+  INSTALLATION_ID:
+    description: Installation ID for GitHub App
+    required: true
+
+runs:
+  using: 'node18'
+  main: 'dist/index.js'
