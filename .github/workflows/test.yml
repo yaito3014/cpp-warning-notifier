@@ -42,5 +42,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_ID: ${{ env.APP_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          INSTALLATION_ID: ${{ env.INSTALLATION_ID }}
           CLIENT_ID: ${{ env.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}

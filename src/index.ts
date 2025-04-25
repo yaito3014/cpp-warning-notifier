@@ -8,7 +8,7 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
 
 const appId = parseInt(process.env.APP_ID!);
 const privateKey = process.env.PRIVATE_KEY!;
-const installationId = appId;
+const installationId = parseInt(process.env.INSTALLATION_ID!);
 const clientId = process.env.CLIENT_ID!;
 const clientSecret = process.env.CLIENT_SECRET!;
 
