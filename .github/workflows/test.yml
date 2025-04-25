@@ -34,8 +34,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - run: npm run build
       - uses: actions/download-artifact@v4
         with:
           name: compilation_log
@@ -46,4 +44,4 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           INSTALLATION_ID: ${{ vars.INSTALLATION_ID }}
           CLIENT_ID: ${{ vars.CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET}}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
