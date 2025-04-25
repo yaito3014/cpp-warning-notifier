@@ -8492,12 +8492,12 @@ for (const file of readdirRecursively(".")) {
         const firstLine = compilation_output.split("\n")[0];
         if (firstLine.startsWith(prefix)) {
             const { run_id } = JSON.parse(firstLine.substring(prefix.length));
-            const { data: jobs } = await octokit.rest.actions.listJobsForWorkflowRun({
+            const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
                 owner,
                 repo,
                 run_id,
             });
-            console.log("jobs: ", jobs.jobs.map((job) => job.html_url));
+            console.log("jobs: ", jobList.jobs.map((job) => job.name));
         }
         const append_string = `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
         if (body) {
