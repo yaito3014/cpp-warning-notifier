@@ -12,6 +12,8 @@ const installationId = parseInt(process.env.INSTALLATION_ID!);
 const clientId = process.env.CLIENT_ID!;
 const clientSecret = process.env.CLIENT_SECRET!;
 
+console.log(appId, installationId, clientId);
+
 const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
 const octokit = await app.getInstallationOctokit(installationId);
 
