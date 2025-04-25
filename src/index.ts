@@ -25,6 +25,8 @@ for (const file of readdirSync(".")) {
     continue;
   }
 
+  console.log("found ", file, ", detecting warnings...");
+
   const compilation_output = readFileSync(file).toString();
 
   const regex = /warning( .\d+)?:/;
@@ -41,7 +43,10 @@ for (const file of readdirSync(".")) {
   }
 }
 
+console.log("body is", body);
+
 if (body) {
+  console.log("leaving comment");
   octokit.rest.issues.createComment({
     owner,
     repo,
