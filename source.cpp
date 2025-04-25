@@ -1,5 +1,7 @@
 #include <iostream>
 
+#warning "WARNING!!!!"
+
 [[nodiscard]] int func() { return 42; }
 
 int main() {
