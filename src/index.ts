@@ -55,6 +55,6 @@ octokit.rest.issues.createComment({
   body: `compilation output is: \n\n\`\`\`json\n${JSON.stringify(
     error_or_warnings,
     null,
-    "\t"
+    "  "
   )}\n\`\`\``,
 });
