@@ -14,17 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          g++ -Wall -Wextra -o test source.cpp > compilation.log 2>&1
+          cmake -S . -B build
+          echo "#cppwarningnotifier commit=${{ github.sha }}" >> compilation.log
+          cmake --build build >> compilation.log 2>&1
       - uses: actions/upload-artifact@v4
         with:
           name: compilation_log
           path: compilation.log
-      - run: ./test
+      - run: ./build/hello_world
 
   run-notifier:
     needs:
       - compile
     runs-on: ubuntu-latest
+    environment:
+      name: MyEnvironment
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,3 +42,8 @@ jobs:
       - run: node dist/index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_ID: ${{ vars.APP_ID }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          INSTALLATION_ID: ${{ vars.INSTALLATION_ID }}
+          CLIENT_ID: ${{ vars.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET}}
