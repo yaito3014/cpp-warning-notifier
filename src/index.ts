@@ -16,13 +16,10 @@ const { data: actions } = await octokit.rest.actions.listWorkflowRunsForRepo({
   repo,
 });
 
-const workflow_runs = actions.workflow_runs.filter((action) => {
-  return (
-    action.head_branch === pullRequest.head.ref &&
-    action.head_sha === pullRequest.head.sha &&
-    action.status === "completed"
-  );
-});
+const workflow_runs = actions.workflow_runs.filter(
+  (action) => action.status === "completed"
+);
+
 if (workflow_runs.length === 0) {
   console.log("No workflow runs found for this pull request.");
 } else {
