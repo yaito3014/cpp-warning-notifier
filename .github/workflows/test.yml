@@ -12,10 +12,13 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     outputs:
-      compilation_outputs: ${{ steps.compile.outputs.log }}
+      compilation_outputs: ${{ steps.compile.outputs.result }}
     steps:
       - uses: actions/checkout@v4
-      - run: echo "log=`g++ -Wall -Wextra -o test source.cpp 2>&1`" >> $GITHUB_OUTPUT
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            return require('child_process').spawnSync('g++ -Wall -o test source.cpp').stderr
         id: compile
       - run: ./test
 
