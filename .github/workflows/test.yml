@@ -30,6 +30,7 @@ jobs:
     environment:
       name: MyEnvironment
     steps:
+      - uses: actions/checkout@v4
       - uses: ./
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
