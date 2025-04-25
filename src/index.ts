@@ -1,11 +1,11 @@
 import { Octokit } from "@octokit/action";
+import { readFileSync } from "fs";
 
 const octokit = new Octokit();
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
-const compilation_output = process.env.COMPILATION_OUTPUT!;
-
+const compilation_output = readFileSync("compilation.log");
 const { data: pullRequest } = await octokit.rest.pulls.get({
   owner,
   repo,

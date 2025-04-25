@@ -11,15 +11,14 @@ on:
 jobs:
   compile:
     runs-on: ubuntu-latest
-    outputs:
-      compilation_outputs: ${{ steps.compile.outputs.result }}
     steps:
       - uses: actions/checkout@v4
       - run: |
-          echo "result=<<EOF" >> $GITHUB_OUTPUT
-          g++ -o test source.cpp 2>&1 >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        id: compile
+          g++ -o test source.cpp 2>&1 > compilation.log
+      - uses: actions/upload-artifact@v3
+        with:
+          name: compilation_log
+          path: compilation.log
       - run: ./test
 
   test:
@@ -33,7 +32,9 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+      - uses: actions/download-artifact@v3
+        with:
+          name: compilation_log
       - run: node dist/index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMPILATION_OUTPUTS: ${{ needs.compile.outputs.compilation_outputs }}
