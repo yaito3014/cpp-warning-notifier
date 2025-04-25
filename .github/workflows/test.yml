@@ -12,10 +12,10 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     outputs:
-      compilation_outputs: ${{ steps.compile.outputs }}
+      compilation_outputs: ${{ steps.compile.outputs.log }}
     steps:
       - uses: actions/checkout@v4
-      - run: g++ -Wall -Wextra -o test source.cpp 2>&1 >> $GITHUB_OUTPUT
+      - run: echo "log=`g++ -Wall -Wextra -o test source.cpp 2>&1`"" >> $GITHUB_OUTPUT
         id: compile
       - run: ./test
 
