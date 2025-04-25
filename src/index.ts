@@ -19,9 +19,11 @@ const octokit = new Octokit();
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
+const body = JSON.stringify(outputs);
+
 octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `compilation output is:\n\n\`\`\`\n${outputs}\n\`\`\``,
+  body: `compilation output is: \n\n\`\`\`json\n${body}\n\`\`\``,
 });
