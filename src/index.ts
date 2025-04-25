@@ -22,7 +22,7 @@ while (cursor < outputs.length) {
       notes_cursor++;
     }
     const error_or_warning = outputs[cursor];
-    const notes = outputs.slice(cursor, notes_cursor);
+    const notes = outputs.slice(cursor + 1, notes_cursor);
 
     error_or_warnings.push({
       error_or_warning,
