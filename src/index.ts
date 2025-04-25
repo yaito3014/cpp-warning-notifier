@@ -3,15 +3,17 @@ import { readFileSync } from "fs";
 
 const compilation_output = readFileSync("compilation.log").toString();
 
-console.log("Parsed compilation output:", compilation_output);
+const regex = /warning( .\d+)?:/;
 
-if (compilation_output.match(/warning( C\d+)?:/).length > 0) {
-  console.log("Compilation output contains warnings.");
+const match_result = compilation_output.match(regex);
+
+if (match_result && match_result.length > 0) {
+  console.log("compilation output contains warnings.");
 }
 
 // if the action is triggered by not a pull request, exit
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
-  console.log("Not a pull request, exiting.");
+  console.log("not a pull request, exiting.");
   process.exit(0);
 }
 
