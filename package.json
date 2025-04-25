@@ -6,11 +6,12 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@octokit/action": "^7.0.2"
+    "@octokit/action": "^7.0.2",
+    "gcc-output-parser": "^0.0.5"
   },
   "devDependencies": {
     "@octokit/tsconfig": "^4.0.0",
-    "typescript": "^5.8.3",
-    "@types/node": "^22.15.2"
+    "@types/node": "^22.15.2",
+    "typescript": "^5.8.3"
   }
 }

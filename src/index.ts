@@ -1,6 +1,8 @@
 import { Octokit } from "@octokit/action";
 import { readFileSync } from "fs";
 
+const parser = require("gcc-output-parser");
+
 // if the action is triggered by not a pull request, exit
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("Not a pull request, exiting.");
@@ -13,9 +15,21 @@ const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 const compilation_output = readFileSync("compilation.log");
 
+type OutputEntry = {
+  filename: string;
+  line: number;
+  column: number;
+  type: string;
+  text: string;
+  code: string;
+  adjustedColumn: number;
+};
+
+const outputs: OutputEntry[] = parser.parseString(compilation_output);
+
 octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `compilation output is:\n\n\`\`\`\n${compilation_output}\n\`\`\``,
+  body: `compilation output is:\n\n\`\`\`\n${outputs}\n\`\`\``,
 });
