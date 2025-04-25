@@ -5,6 +5,10 @@ const compilation_output = readFileSync("compilation.log").toString();
 
 console.log("Parsed compilation output:", compilation_output);
 
+if (compilation_output.match(/warning( C\d+)?:/).length > 0) {
+  console.log("Compilation output contains warnings.");
+}
+
 // if the action is triggered by not a pull request, exit
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("Not a pull request, exiting.");
@@ -20,5 +24,5 @@ octokit.rest.issues.createComment({
   owner,
   repo,
   issue_number: pull_request_number,
-  body: `compilation output is: \n\n\`\`\`\n${compilation_output}\n\`\`\``,
+  body: `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>`,
 });
