@@ -35,7 +35,8 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
 
 for (const file of readdirRecursively(".")) {
   console.log("looking ", file, ", deciding whether skip or not...");
-  if (!file.startsWith("compilation") || !file.endsWith(".log")) {
+
+  if (!file.match(/compilation.*\.log$/)) {
     continue;
   }
 
