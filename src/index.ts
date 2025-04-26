@@ -36,7 +36,7 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
-  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_log/);
+  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_(\d+)_log/);
 
   if (artifactMatch === null || artifactMatch.length === 0) {
     continue;
@@ -46,7 +46,7 @@ for (const file of readdirRecursively(".")) {
 
   const runId = artifactMatch[1];
   const jobId = artifactMatch[2];
-  const stepId = 3;
+  const stepId = artifactMatch[3];
 
   console.log("found", file, "detecting warnings...");
 
