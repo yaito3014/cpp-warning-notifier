@@ -15,11 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           cmake -S . -B build
-          echo '#cppwarningnotifier { "run_id": ${{ github.run_id }} }' >> compilation.log
           cmake --build build >> compilation.log 2>&1
+      - uses: qoomon/actions--context@v4
+        id: context
       - uses: actions/upload-artifact@v4
         with:
-          name: compilation_log
+          name: compilation_${{ steps.context.outputs.runner_id }}_${{ steps.context.outputs.job_id }}_log
           path: compilation*.log
       - run: ./build/hello_world
 
@@ -32,8 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with:
-          name: compilation_log
       - uses: ./
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
