@@ -8492,7 +8492,7 @@ for (const file of readdirRecursively(".")) {
     const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
     if (outputMatch && outputMatch.length > 0) {
         const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
-        const appendString = `detected warnings in the compilation output\n${url}\n<details><summary>compilation output</summary>\n\n\`\`\`\n${compilationOutput}\n\`\`\`\n</details>\n`;
+        const appendString = `detected warnings in the compilation output\n<${url}>\n<details><summary>compilation output</summary>\n\n\`\`\`\n${compilationOutput}\n\`\`\`\n</details>\n`;
         if (body) {
             body += appendString;
         }
