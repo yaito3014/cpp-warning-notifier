@@ -55,9 +55,12 @@ for (const file of readdirRecursively(".")) {
   const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
 
   if (outputMatch && outputMatch.length > 0) {
+
+    const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({ owner, repo, job_id: parseInt(jobId) });
+
     const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 
-    const appendString = `1. <${url}>\n`;
+    const appendString = `1. [${job.name}](<${url}>)\n`;
     if (body) {
       body += appendString;
     } else {
