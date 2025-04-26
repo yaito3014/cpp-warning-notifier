@@ -20,7 +20,7 @@ jobs:
         id: context
       - uses: actions/upload-artifact@v4
         with:
-          name: compilation_${{ steps.context.outputs.runner_id }}_${{ steps.context.outputs.job_id }}_log
+          name: compilation_${{ github.run_id }}_${{ steps.context.outputs.job_id }}_log
           path: compilation*.log
       - run: ./build/hello_world
 
