@@ -36,26 +36,32 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
-  const res = file.match(/compilation.*\.log$/);
+  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_(\d+)_log/);
 
-  if (res === null || res.length === 0) {
+  if (artifactMatch === null || artifactMatch.length === 0) {
     continue;
   }
 
+  console.log(artifactMatch.groups);
+
+  const runId = artifactMatch[1];
+  const jobId = artifactMatch[2];
+  const stepId = artifactMatch[3];
+
   console.log("found", file, "detecting warnings...");
 
-  const compilation_output = readFileSync(file).toString();
+  const compilationOutput = readFileSync(file).toString();
 
-  const regex = /warning( .\d+)?:/;
+  const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
 
-  const match_result = compilation_output.match(regex);
+  if (outputMatch && outputMatch.length > 0) {
+    const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 
-  if (match_result && match_result.length > 0) {
-    const append_string = `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
+    const appendString = `1. <${url}>\n`;
     if (body) {
-      body += append_string;
+      body += appendString;
     } else {
-      body = append_string;
+      body = appendString;
     }
   }
 }
