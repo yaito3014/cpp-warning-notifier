@@ -8479,32 +8479,25 @@ const readdirRecursively = (dir, files = []) => {
 };
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
-    const res = file.match(/compilation.*\.log$/);
-    if (res === null || res.length === 0) {
+    const artifactMatch = file.match(/compilation_(\d+)_(\d+)_log/);
+    if (artifactMatch === null || artifactMatch.length === 0) {
         continue;
     }
+    console.log(artifactMatch.groups);
+    const runnerId = artifactMatch[1];
+    const jobId = artifactMatch[2];
+    const stepId = 3;
     console.log("found", file, "detecting warnings...");
-    const compilation_output = readFileSync(file).toString();
-    const regex = /warning( .\d+)?:/;
-    const match_result = compilation_output.match(regex);
-    if (match_result && match_result.length > 0) {
-        const prefix = "#cppwarningnotifier";
-        const firstLine = compilation_output.split("\n")[0];
-        if (firstLine.startsWith(prefix)) {
-            const { run_id } = JSON.parse(firstLine.substring(prefix.length));
-            const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
-                owner,
-                repo,
-                run_id,
-            });
-            console.log("jobs: ", jobList.jobs.map((job) => job.name));
-        }
-        const append_string = `detected warnings in the compilation output: <details><summary>compilation output</summary>\n\n\`\`\`\n${compilation_output}\n\`\`\`\n</details>\n`;
+    const compilationOutput = readFileSync(file).toString();
+    const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
+    if (outputMatch && outputMatch.length > 0) {
+        const url = `https://github.com/${owner}/${repo}/actions/runs/${runnerId}/job/${jobId}#step:${stepId}:1`;
+        const appendString = `detected warnings in the compilation output\n${url}\n<details><summary>compilation output</summary>\n\n\`\`\`\n${compilationOutput}\n\`\`\`\n</details>\n`;
         if (body) {
-            body += append_string;
+            body += appendString;
         }
         else {
-            body = append_string;
+            body = appendString;
         }
     }
 }
