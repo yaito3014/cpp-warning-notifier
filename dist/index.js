@@ -8527,7 +8527,7 @@ for (const file of readdirRecursively(".")) {
     matrix[osName][osVersion][compilerVendor] ??= {};
     matrix[osName][osVersion][compilerVendor][compilerVersion] ??= {};
     matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= [];
-    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `[${compileResult}](<${url}>)`;
+    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `<a href="${url}">${compileResult}</a>`;
     const appendString = `1. [${job.name}](<${url}>)\n`;
     if (body) {
         body += appendString;

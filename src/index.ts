@@ -100,7 +100,7 @@ for (const file of readdirRecursively(".")) {
   matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= [];
   matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][
     (parseInt(cppVersion) - 20) / 3
-  ] ??= `[${compileResult}](<${url}>)`;
+  ] ??= `<a href="${url}">${compileResult}</a>`;
 
   const appendString = `1. [${job.name}](<${url}>)\n`;
   if (body) {
