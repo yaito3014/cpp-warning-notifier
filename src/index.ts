@@ -115,6 +115,7 @@ console.log(matrix);
 const renderHTML = (mat: any) => {
   let body = "";
   let count = 0;
+  body += `<tr>`;
   for (const [key, val] of Object.entries(mat)) {
     if (Array.isArray(val)) {
       ++count;
@@ -124,10 +125,11 @@ const renderHTML = (mat: any) => {
       }
     } else {
       const { count: innerCount, body: innerBody } = renderHTML(val);
-      body += `<th rowspan="${innerCount}"></th>`;
+      body += `<th rowspan="${innerCount}">${key}</th>`;
       body += innerBody;
     }
   }
+  body += `</tr>`;
   return { count, body };
 };
 
