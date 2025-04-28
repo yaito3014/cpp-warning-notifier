@@ -8493,11 +8493,11 @@ for (const file of readdirRecursively(".")) {
     const compileResult = (() => {
         const warningMatch = compilationOutput.match(/warning( .\d+)?:/);
         if (warningMatch && warningMatch.length > 0)
-            return "warning";
+            return "⚠️warning";
         const errorMatch = compilationOutput.match(/error( .\d+)?:/);
         if (errorMatch && errorMatch.length > 0)
-            return "error";
-        return "success";
+            return "❌error";
+        return "✅success";
     })();
     const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
         owner,
