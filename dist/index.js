@@ -1,3 +1,4 @@
+import 'console';
 import { readFileSync, readdirSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
@@ -8477,30 +8478,110 @@ const readdirRecursively = (dir, files = []) => {
     }
     return files;
 };
+let matrix = {};
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
     const artifactMatch = file.match(/compilation_(\d+)_(\d+)_(\d+)_log/);
     if (artifactMatch === null || artifactMatch.length === 0) {
         continue;
     }
-    console.log(artifactMatch.groups);
     const runId = artifactMatch[1];
     const jobId = artifactMatch[2];
     const stepId = artifactMatch[3];
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
-    const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
-    if (outputMatch && outputMatch.length > 0) {
-        const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
-        const appendString = `1. <${url}>\n`;
-        if (body) {
-            body += appendString;
-        }
-        else {
-            body = appendString;
-        }
+    const compileResult = (() => {
+        const warningMatch = compilationOutput.match(/warning( .\d+)?:/);
+        if (warningMatch && warningMatch.length > 0)
+            return "warning";
+        const errorMatch = compilationOutput.match(/error( .\d+)?:/);
+        if (errorMatch && errorMatch.length > 0)
+            return "error";
+        return "success";
+    })();
+    const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
+        owner,
+        repo,
+        job_id: parseInt(jobId),
+    });
+    console.log(`job name is "${job.name}"`);
+    // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
+    const jobMatch = job.name.match(/.+\((.+?)\)/);
+    if (!jobMatch || jobMatch.length === 0) {
+        console.log("job match fail");
+        continue;
     }
+    const info = jobMatch[1].split(", ");
+    console.log("info: ", info);
+    const osName = info[0];
+    const osVersion = info[1];
+    const buildType = info[2];
+    const cppVersion = info[3];
+    // const boostVersion = info[4];
+    const compilerVendor = info[5];
+    const compilerVersion = info[6];
+    // const compilerExecutable = info[7];
+    const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
+    matrix[osName] ??= {};
+    matrix[osName][osVersion] ??= {};
+    matrix[osName][osVersion][compilerVendor] ??= {};
+    matrix[osName][osVersion][compilerVendor][compilerVersion] ??= {};
+    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= [];
+    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `<a href="${url}">${compileResult}</a>`;
+    // const appendString = `1. [${job.name}](<${url}>)\n`;
+    // if (body) {
+    //   body += appendString;
+    // } else {
+    //   body = appendString;
+    // }
 }
+console.log(matrix);
+function generateTable(data) {
+    return `
+  <table>
+    <thead>
+      <th colspan=5>Environment</th>
+      <th>C++20</th>
+      <th>C++23</th>
+      <th>C++26</th>
+    </thead>
+    <tbody>
+    ${generateRows(data)}
+    </tbody>
+  </table>
+  `;
+}
+function generateRows(data) {
+    function count(obj) {
+        let res = 0;
+        for (const [_, val] of Object.entries(obj)) {
+            if (Array.isArray(val))
+                ++res;
+            else
+                res += count(val);
+        }
+        return res;
+    }
+    function traverse(obj, body = "<tr>") {
+        for (const [key, val] of Object.entries(obj)) {
+            if (Array.isArray(val)) {
+                body += `<th>${key}</th>`;
+                for (const elem of val) {
+                    body += `<td>${elem}</td>`;
+                }
+                body += "</tr><tr>";
+            }
+            else {
+                body += `<th rowspan="${count(val)}">${key}</th>`;
+                body = traverse(val, body);
+            }
+        }
+        return body;
+    }
+    let res = traverse(data);
+    return res.substring(0, res.length - "</tr><tr>".length); // remove trailing <tr></tr>
+}
+body ??= generateTable(matrix);
 console.log("body is", body);
 if (body) {
     console.log("leaving comment");
