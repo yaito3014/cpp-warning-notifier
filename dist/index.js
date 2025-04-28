@@ -8559,29 +8559,45 @@ const renderHTML = (mat) => {
     }
     return { count, body };
 };
-// chatGPT
+// 各ノードの「総行数」を計算する関数
+function countRows(obj) {
+    if (Array.isArray(obj)) {
+        return 1;
+    }
+    let count = 0;
+    for (const key in obj) {
+        count += countRows(obj[key]);
+    }
+    return count;
+}
 function createRecursiveTable(data) {
     let html = "<table border='1'>";
     html += "<thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>";
-    function traverse(obj, depth = 0) {
+    function traverse(obj, includeTr = true) {
         let rows = "";
         if (Array.isArray(obj)) {
-            // 配列の場合、単純に値を出力
+            // 配列ならそのままValue出力
+            if (includeTr)
+                rows += `<tr>`;
             rows += `<td>${obj.join(", ")}</td></tr>`;
         }
         else {
             for (const key in obj) {
                 const value = obj[key];
                 const rowspan = countRows(value);
-                rows += `<tr>`;
+                if (includeTr)
+                    rows += `<tr>`;
                 rows += `<td rowspan="${rowspan}">${key}</td>`;
-                if (Array.isArray(value)) {
-                    // 次が配列なら、すぐ値を出す
-                    rows += `<td>${value.join(", ")}</td></tr>`;
-                }
-                else {
-                    // 次がオブジェクトなら、さらに潜る
-                    rows += traverse(value, depth + 1);
+                // 最初の子要素は同じ<tr>の中に入れる
+                rows += traverse(value, false);
+                // 2個目以降の子要素は<tr>を新たに作る
+                if (!Array.isArray(value)) {
+                    const keys = Object.keys(value);
+                    for (let i = 1; i < keys.length; i++) {
+                        const childKey = keys[i];
+                        rows += `<tr><td rowspan="${countRows(value[childKey])}">${childKey}</td>`;
+                        rows += traverse(value[childKey], false);
+                    }
                 }
             }
         }
