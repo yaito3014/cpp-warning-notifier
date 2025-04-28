@@ -8552,6 +8552,7 @@ const renderHTML = (mat) => {
         }
         else {
             const { count: innerCount, body: innerBody } = renderHTML(val);
+            count += innerCount;
             temp += `<th rowspan="${innerCount}">${key}</th>`;
             temp += innerBody;
         }
