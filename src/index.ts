@@ -68,6 +68,8 @@ for (const file of readdirRecursively(".")) {
     job_id: parseInt(jobId),
   });
 
+  console.log(`job name is "${job.name}"`);
+
   // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
   const jobMatch = job.name.match(
     /.+\((.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?)\)/
