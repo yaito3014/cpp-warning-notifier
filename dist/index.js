@@ -8541,19 +8541,21 @@ const renderHTML = (mat) => {
     let body = "";
     let count = 0;
     for (const [key, val] of Object.entries(mat)) {
+        let temp = "";
         if (Array.isArray(val)) {
             ++count;
-            body += `<th>${key}</th>`;
+            temp += `<th>${key}</th>`;
             for (const elem of val) {
-                body += `<td>${elem}</td>\n`;
+                temp += `<td>${elem}</td>\n`;
             }
-            body = `<tr>${body}</tr>`;
+            temp = `<tr>${temp}</tr>`;
         }
         else {
             const { count: innerCount, body: innerBody } = renderHTML(val);
-            body += `<th rowspan="${innerCount}">${key}</th>`;
-            body += innerBody;
+            temp += `<th rowspan="${innerCount}">${key}</th>`;
+            temp += innerBody;
         }
+        body += temp;
     }
     return { count, body };
 };
