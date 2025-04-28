@@ -134,147 +134,60 @@ const renderHTML = (mat: any) => {
   return { count, body };
 };
 
-// Grok
-// 入力データの型定義（任意の深さのネストを許容）
-interface NestedData {
-  [key: string]: NestedData | string[];
-}
+type NestedData = {
+  [keys: string]: NestedData | string[];
+};
 
-// テーブル生成のためのコンテキスト
-interface TableContext {
-  headers: string[]; // 動的ヘッダー（例: C++20, C++23）
-  maxDepth: number; // データの最大深さ（最下層のリンク配列を除く）
-}
-
-// HTMLテーブルを生成するメイン関数
 function generateTable(data: NestedData): string {
-  // リンクの数とヘッダーを取得
-  const context = createTableContext(data);
-  const { headers, maxDepth } = context;
-
-  // テーブルのヘッダー生成
-  let table = `
-<table>
-  <thead>
-    <tr>
-      ${Array(maxDepth)
-        .fill(0)
-        .map((_, i) => `<th>${i === 0 ? "Platform" : "Compiler"}</th>`)
-        .join("")}
-      <th>Build Type</th>
-      ${headers.map((header) => `<th>${header}</th>`).join("")}
-    </tr>
-  </thead>
-  <tbody>
-`;
-
-  // ボディを再帰的に生成
-  table += generateTableBody(data, [], maxDepth, context);
-
-  // テーブル終了
-  table += `
-  </tbody>
-</table>
-`;
-
-  return table;
+  return `
+  <table>
+    <thead>
+      <th colspan=5>Environment</th>
+      <th>C++20</th>
+      <th>C++23</th>
+      <th>C++26</th>
+    </thead>
+    <tbody>
+    ${generateRows(data)}
+    </tbody>
+  </table>
+  `;
 }
 
-// テーブルのコンテキストを生成（ヘッダーと最大深さを計算）
-function createTableContext(data: NestedData): TableContext {
-  // リンク配列に到達するまで深さを探索
-  let maxDepth = 0;
-  let linkCount = 0;
+function generateRows(data: NestedData): string {
+  function count(obj: NestedData) {
+    let res = 0;
+    for (const [_, val] of Object.entries(obj)) {
+      if (Array.isArray(val)) ++res;
+      else res += count(val);
+    }
+    return res;
+  }
 
-  function exploreDepth(obj: NestedData, depth: number) {
-    for (const key in obj) {
-      if (Array.isArray(obj[key])) {
-        maxDepth = Math.max(maxDepth, depth);
-        linkCount = (obj[key] as string[]).length;
-        break;
+  function traverse(obj: NestedData, body: string = "<tr>") {
+    for (const [key, val] of Object.entries(obj)) {
+      if (Array.isArray(val)) {
+        body += `<th>${key}</th>`;
+        for (const elem of val) {
+          body += `<td>${elem}</td>`;
+        }
+        body += "</tr><tr>";
       } else {
-        exploreDepth(obj[key] as NestedData, depth + 1);
+        body += `<th rowspan="${count(val)}">${key}</th>`;
+        body = traverse(val, body);
       }
     }
+    return body;
   }
-
-  exploreDepth(data, 0);
-
-  // ヘッダーを動的に生成（例: C++20, C++23, ...）
-  const headers = Array.from(
-    { length: linkCount },
-    (_, i) => `C++${20 + i * 3}`
-  );
-
-  return { headers, maxDepth };
+  return traverse(data);
 }
 
-// 再帰的にテーブルボディを生成
-function generateTableBody(
-  data: NestedData,
-  path: string[],
-  maxDepth: number,
-  context: TableContext
-): string {
-  let body = "";
-
-  // 現在のノードがリンク配列（最下層）なら行を生成
-  for (const key in data) {
-    if (Array.isArray(data[key])) {
-      const buildTypes = Object.keys(data);
-      for (let i = 0; i < buildTypes.length; i++) {
-        const buildType = buildTypes[i];
-        const links = data[buildType] as string[];
-        const isFirstRow = i === 0;
-
-        body += `
-        <tr>
-          ${path
-            .map(
-              (p, idx) =>
-                `<th${
-                  isFirstRow && idx === path.length - 1
-                    ? ` rowspan="${buildTypes.length}"`
-                    : ""
-                }>${p}</th>`
-            )
-            .join("")}
-          ${
-            path.length < maxDepth
-              ? `<th${
-                  isFirstRow ? ` rowspan="${buildTypes.length}"` : ""
-                }>${key}</th>`
-              : ""
-          }
-          <th>${buildType}</th>
-          ${links.map((link) => `<td>${link}</td>`).join("")}
-        </tr>
-`;
-      }
-      return body;
-    }
-  }
-
-  // リンク配列でない場合、子ノードを再帰的に処理
-  for (const key in data) {
-    if (!Array.isArray(data[key])) {
-      body += generateTableBody(
-        data[key] as NestedData,
-        [...path, key],
-        maxDepth,
-        context
-      );
-    }
-  }
-
-  return body;
-}
+body += generateTable(matrix);
 
 console.log("body is", body);
 
 if (body) {
   console.log("leaving comment");
-  body += generateTable(matrix);
   octokit.rest.issues.createComment({
     owner,
     repo,
