@@ -127,7 +127,7 @@ const renderHTML = (mat: any) => {
     } else {
       const { count: innerCount, body: innerBody } = renderHTML(val);
       count += innerCount;
-      temp += `<th rowspan="${innerCount}">${key}</th>`;
+      temp += `<th rowspan="${count}">${key}</th>`;
       temp += innerBody;
     }
     body += temp;
