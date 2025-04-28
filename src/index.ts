@@ -81,14 +81,14 @@ for (const file of readdirRecursively(".")) {
 
   console.log("info: ", info);
 
-  const osName = info[1];
-  const osVersion = info[2];
-  const buildType = info[3];
-  const cppVersion = info[4];
-  // const boostVersion = info[5];
-  const compilerVendor = info[6];
-  const compilerVersion = info[7];
-  // const compilerExecutable = info[8];
+  const osName = info[0];
+  const osVersion = info[1];
+  const buildType = info[2];
+  const cppVersion = info[3];
+  // const boostVersion = info[4];
+  const compilerVendor = info[5];
+  const compilerVersion = info[6];
+  // const compilerExecutable = info[7];
 
   const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 
