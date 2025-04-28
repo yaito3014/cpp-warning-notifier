@@ -8528,13 +8528,12 @@ for (const file of readdirRecursively(".")) {
     matrix[osName][osVersion][compilerVendor][compilerVersion] ??= {};
     matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= [];
     matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `<a href="${url}">${compileResult}</a>`;
-    const appendString = `1. [${job.name}](<${url}>)\n`;
-    if (body) {
-        body += appendString;
-    }
-    else {
-        body = appendString;
-    }
+    // const appendString = `1. [${job.name}](<${url}>)\n`;
+    // if (body) {
+    //   body += appendString;
+    // } else {
+    //   body = appendString;
+    // }
 }
 console.log(matrix);
 function generateTable(data) {
@@ -8579,9 +8578,10 @@ function generateRows(data) {
         }
         return body;
     }
-    return traverse(data);
+    let res = traverse(data);
+    return res.substring(0, res.length - "</tr><tr>".length); // remove trailing <tr></tr>
 }
-body += generateTable(matrix);
+body ??= generateTable(matrix);
 console.log("body is", body);
 if (body) {
     console.log("leaving comment");

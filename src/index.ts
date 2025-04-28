@@ -102,37 +102,15 @@ for (const file of readdirRecursively(".")) {
     (parseInt(cppVersion) - 20) / 3
   ] ??= `<a href="${url}">${compileResult}</a>`;
 
-  const appendString = `1. [${job.name}](<${url}>)\n`;
-  if (body) {
-    body += appendString;
-  } else {
-    body = appendString;
-  }
+  // const appendString = `1. [${job.name}](<${url}>)\n`;
+  // if (body) {
+  //   body += appendString;
+  // } else {
+  //   body = appendString;
+  // }
 }
 
 console.log(matrix);
-
-const renderHTML = (mat: any) => {
-  let body = "";
-  let count = 0;
-  for (const [key, val] of Object.entries(mat)) {
-    let temp = "";
-    if (Array.isArray(val)) {
-      ++count;
-      temp += `<th>${key}</th>`;
-      for (const elem of val) {
-        temp += `<td>${elem}</td>\n`;
-      }
-      temp = `<tr>${temp}</tr>`;
-    } else {
-      const { count: innerCount, body: innerBody } = renderHTML(val);
-      temp += `<th rowspan="${innerCount}">${key}</th>`;
-      temp += innerBody;
-    }
-    body += temp;
-  }
-  return { count, body };
-};
 
 type NestedData = {
   [keys: string]: NestedData | string[];
@@ -179,10 +157,11 @@ function generateRows(data: NestedData): string {
     }
     return body;
   }
-  return traverse(data);
+  let res = traverse(data);
+  return res.substring(0, res.length - "</tr><tr>".length); // remove trailing <tr></tr>
 }
 
-body += generateTable(matrix);
+body ??= generateTable(matrix);
 
 console.log("body is", body);
 
