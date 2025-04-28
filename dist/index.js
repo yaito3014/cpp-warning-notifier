@@ -8540,7 +8540,6 @@ console.log(matrix);
 const renderHTML = (mat) => {
     let body = "";
     let count = 0;
-    body += `<tr>`;
     for (const [key, val] of Object.entries(mat)) {
         if (Array.isArray(val)) {
             ++count;
@@ -8548,6 +8547,7 @@ const renderHTML = (mat) => {
             for (const elem of val) {
                 body += `<td>${elem}</td>\n`;
             }
+            body = `<tr>${body}</tr>`;
         }
         else {
             const { count: innerCount, body: innerBody } = renderHTML(val);
@@ -8555,7 +8555,6 @@ const renderHTML = (mat) => {
             body += innerBody;
         }
     }
-    body += `</tr>`;
     return { count, body };
 };
 console.log("body is", body);
