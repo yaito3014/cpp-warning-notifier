@@ -8552,14 +8552,45 @@ const renderHTML = (mat) => {
         }
         else {
             const { count: innerCount, body: innerBody } = renderHTML(val);
-            count += innerCount;
-            temp += `<th rowspan="${count}">${key}</th>`;
+            temp += `<th rowspan="${innerCount}">${key}</th>`;
             temp += innerBody;
         }
         body += temp;
     }
     return { count, body };
 };
+// chatGPT
+function createRecursiveTable(data) {
+    let html = "<table border='1'>";
+    html += "<thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>";
+    function traverse(obj, depth = 0) {
+        let rows = "";
+        if (Array.isArray(obj)) {
+            // 配列の場合、単純に値を出力
+            rows += `<td>${obj.join(", ")}</td></tr>`;
+        }
+        else {
+            for (const key in obj) {
+                const value = obj[key];
+                const rowspan = countRows(value);
+                rows += `<tr>`;
+                rows += `<td rowspan="${rowspan}">${key}</td>`;
+                if (Array.isArray(value)) {
+                    // 次が配列なら、すぐ値を出す
+                    rows += `<td>${value.join(", ")}</td></tr>`;
+                }
+                else {
+                    // 次がオブジェクトなら、さらに潜る
+                    rows += traverse(value, depth + 1);
+                }
+            }
+        }
+        return rows;
+    }
+    html += traverse(data);
+    html += "</tbody></table>";
+    return html;
+}
 console.log("body is", body);
 if (body) {
     console.log("leaving comment");
@@ -8574,6 +8605,7 @@ if (body) {
     <tbody>${renderHTML(matrix).body}</tbody>
   </table>
   `;
+    body += createRecursiveTable(matrix);
     octokit.rest.issues.createComment({
         owner,
         repo,
