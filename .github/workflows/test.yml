@@ -11,6 +11,21 @@ on:
 jobs:
   compile:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+        build_type: [Release, Debug]
+        cpp_version: [20, 23, 26]
+        boost_version: [1.86.0]
+        compiler:
+          - vendor: GNU
+            version: 13
+          - vendor: LLVM
+            version: 20
+
     steps:
       - uses: actions/checkout@v4
       - run: |

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "fs";
 import { App } from "octokit";
+import { ElementFlags } from "typescript";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
@@ -33,6 +34,8 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
   return files;
 };
 
+let matrix: any = {};
+
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
@@ -42,8 +45,6 @@ for (const file of readdirRecursively(".")) {
     continue;
   }
 
-  console.log(artifactMatch.groups);
-
   const runId = artifactMatch[1];
   const jobId = artifactMatch[2];
   const stepId = artifactMatch[3];
@@ -52,22 +53,55 @@ for (const file of readdirRecursively(".")) {
 
   const compilationOutput = readFileSync(file).toString();
 
-  const outputMatch = compilationOutput.match(/warning( .\d+)?:/);
+  const compileResult = (() => {
+    const warningMatch = compilationOutput.match(/warning( .\d+)?:/);
+    if (warningMatch && warningMatch.length > 0) return "warning";
 
-  if (outputMatch && outputMatch.length > 0) {
+    const errorMatch = compilationOutput.match(/error( .\d+)?:/);
+    if (errorMatch && errorMatch.length > 0) return "error";
 
-    const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({ owner, repo, job_id: parseInt(jobId) });
+    return "success";
+  })();
 
-    const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
+  const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
+    owner,
+    repo,
+    job_id: parseInt(jobId),
+  });
 
-    const appendString = `1. [${job.name}](<${url}>)\n`;
-    if (body) {
-      body += appendString;
-    } else {
-      body = appendString;
-    }
+  // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
+  const jobMatch = job.name.match(
+    /.+\((.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?)\)/
+  );
+  if (!jobMatch || jobMatch.length === 0) {
+    console.log("job match fail");
+    continue;
+  }
+
+  const osName = jobMatch[1];
+  const osVersion = jobMatch[2];
+  const buildType = jobMatch[3];
+  const cppVersion = jobMatch[4];
+  // const boostVersion = jobMatch[5];
+  const compilerVendor = jobMatch[6];
+  const compilerVersion = jobMatch[7];
+  // const compilerExecutable = jobMatch[8];
+
+  const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
+
+  matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][
+    (parseInt(cppVersion) - 20) / 3
+  ] = `[${compileResult}](<${url}>)`;
+
+  const appendString = `1. [${job.name}](<${url}>)\n`;
+  if (body) {
+    body += appendString;
+  } else {
+    body = appendString;
   }
 }
+
+console.log(matrix);
 
 console.log("body is", body);
 
