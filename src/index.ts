@@ -1,3 +1,4 @@
+import { count } from "console";
 import { readdirSync, readFileSync } from "fs";
 import { App } from "octokit";
 
@@ -111,10 +112,40 @@ for (const file of readdirRecursively(".")) {
 
 console.log(matrix);
 
+const renderHTML = (mat: any) => {
+  let body = "";
+  let count = 0;
+  for (const [key, val] of Object.entries(mat)) {
+    if (Array.isArray(val)) {
+      ++count;
+      body += `<th>${key}</th>`;
+      for (const elem of val) {
+        body += `<td>${elem}</td>\n`;
+      }
+    } else {
+      const { count: innerCount, body: innerBody } = renderHTML(val);
+      body += `<th rowspan="${innerCount}"></th>`;
+      body += innerBody;
+    }
+  }
+  return { count, body };
+};
+
 console.log("body is", body);
 
 if (body) {
   console.log("leaving comment");
+  body += `
+  <table>
+    <thead>
+      <th colspan=5>Environment</th>
+      <th>C++20</th>
+      <th>C++23</th>
+      <th>C++26</th>
+    </thead>
+    <tbody>${renderHTML(matrix)}</tbody>
+  </table>
+  `;
   octokit.rest.issues.createComment({
     owner,
     repo,
