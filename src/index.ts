@@ -1,6 +1,5 @@
 import { readdirSync, readFileSync } from "fs";
 import { App } from "octokit";
-import { ElementFlags } from "typescript";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
