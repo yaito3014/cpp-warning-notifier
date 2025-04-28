@@ -143,7 +143,7 @@ if (body) {
       <th>C++23</th>
       <th>C++26</th>
     </thead>
-    <tbody>${renderHTML(matrix)}</tbody>
+    <tbody>${renderHTML(matrix).body}</tbody>
   </table>
   `;
   octokit.rest.issues.createComment({
