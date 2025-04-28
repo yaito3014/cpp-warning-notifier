@@ -134,81 +134,147 @@ const renderHTML = (mat: any) => {
   return { count, body };
 };
 
-// chatGPT
-type NestedData = {
-  [key: string]: NestedData | number[];
-};
-
-// 各ノードの「総行数」を計算する関数
-function countRows(obj: NestedData | number[]): number {
-  if (Array.isArray(obj)) {
-    return 1;
-  }
-  let count = 0;
-  for (const key in obj) {
-    count += countRows(obj[key]);
-  }
-  return count;
+// Grok
+// 入力データの型定義（任意の深さのネストを許容）
+interface NestedData {
+  [key: string]: NestedData | string[];
 }
 
-function createRecursiveTable(data: NestedData): string {
-  let html = "<table border='1'>";
-  html += "<thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>";
+// テーブル生成のためのコンテキスト
+interface TableContext {
+  headers: string[]; // 動的ヘッダー（例: C++20, C++23）
+  maxDepth: number; // データの最大深さ（最下層のリンク配列を除く）
+}
 
-  function traverse(obj: NestedData | number[], includeTr: boolean = true): string {
-    let rows = "";
+// HTMLテーブルを生成するメイン関数
+function generateTable(data: NestedData): string {
+  // リンクの数とヘッダーを取得
+  const context = createTableContext(data);
+  const { headers, maxDepth } = context;
 
-    if (Array.isArray(obj)) {
-      // 配列ならそのままValue出力
-      if (includeTr) rows += `<tr>`;
-      rows += `<td>${obj.join(", ")}</td></tr>`;
-    } else {
-      for (const key in obj) {
-        const value = obj[key];
-        const rowspan = countRows(value);
+  // テーブルのヘッダー生成
+  let table = `
+<table>
+  <thead>
+    <tr>
+      ${Array(maxDepth)
+        .fill(0)
+        .map((_, i) => `<th>${i === 0 ? "Platform" : "Compiler"}</th>`)
+        .join("")}
+      <th>Build Type</th>
+      ${headers.map((header) => `<th>${header}</th>`).join("")}
+    </tr>
+  </thead>
+  <tbody>
+`;
 
-        if (includeTr) rows += `<tr>`;
-        rows += `<td rowspan="${rowspan}">${key}</td>`;
+  // ボディを再帰的に生成
+  table += generateTableBody(data, [], maxDepth, context);
 
-        // 最初の子要素は同じ<tr>の中に入れる
-        rows += traverse(value, false);
+  // テーブル終了
+  table += `
+  </tbody>
+</table>
+`;
 
-        // 2個目以降の子要素は<tr>を新たに作る
-        if (!Array.isArray(value)) {
-          const keys = Object.keys(value);
-          for (let i = 1; i < keys.length; i++) {
-            const childKey = keys[i];
-            rows += `<tr><td rowspan="${countRows(value[childKey])}">${childKey}</td>`;
-            rows += traverse(value[childKey], false);
-          }
-        }
+  return table;
+}
+
+// テーブルのコンテキストを生成（ヘッダーと最大深さを計算）
+function createTableContext(data: NestedData): TableContext {
+  // リンク配列に到達するまで深さを探索
+  let maxDepth = 0;
+  let linkCount = 0;
+
+  function exploreDepth(obj: NestedData, depth: number) {
+    for (const key in obj) {
+      if (Array.isArray(obj[key])) {
+        maxDepth = Math.max(maxDepth, depth);
+        linkCount = (obj[key] as string[]).length;
+        break;
+      } else {
+        exploreDepth(obj[key] as NestedData, depth + 1);
       }
     }
-
-    return rows;
   }
 
-  html += traverse(data);
-  html += "</tbody></table>";
-  return html;
+  exploreDepth(data, 0);
+
+  // ヘッダーを動的に生成（例: C++20, C++23, ...）
+  const headers = Array.from(
+    { length: linkCount },
+    (_, i) => `C++${20 + i * 3}`
+  );
+
+  return { headers, maxDepth };
+}
+
+// 再帰的にテーブルボディを生成
+function generateTableBody(
+  data: NestedData,
+  path: string[],
+  maxDepth: number,
+  context: TableContext
+): string {
+  let body = "";
+
+  // 現在のノードがリンク配列（最下層）なら行を生成
+  for (const key in data) {
+    if (Array.isArray(data[key])) {
+      const buildTypes = Object.keys(data);
+      for (let i = 0; i < buildTypes.length; i++) {
+        const buildType = buildTypes[i];
+        const links = data[buildType] as string[];
+        const isFirstRow = i === 0;
+
+        body += `
+        <tr>
+          ${path
+            .map(
+              (p, idx) =>
+                `<th${
+                  isFirstRow && idx === path.length - 1
+                    ? ` rowspan="${buildTypes.length}"`
+                    : ""
+                }>${p}</th>`
+            )
+            .join("")}
+          ${
+            path.length < maxDepth
+              ? `<th${
+                  isFirstRow ? ` rowspan="${buildTypes.length}"` : ""
+                }>${key}</th>`
+              : ""
+          }
+          <th>${buildType}</th>
+          ${links.map((link) => `<td>${link}</td>`).join("")}
+        </tr>
+`;
+      }
+      return body;
+    }
+  }
+
+  // リンク配列でない場合、子ノードを再帰的に処理
+  for (const key in data) {
+    if (!Array.isArray(data[key])) {
+      body += generateTableBody(
+        data[key] as NestedData,
+        [...path, key],
+        maxDepth,
+        context
+      );
+    }
+  }
+
+  return body;
 }
 
 console.log("body is", body);
 
 if (body) {
   console.log("leaving comment");
-  body += `
-  <table>
-    <thead>
-      <th colspan=5>Environment</th>
-      <th>C++20</th>
-      <th>C++23</th>
-      <th>C++26</th>
-    </thead>
-    <tbody>${renderHTML(matrix).body}</tbody>
-  </table>
-  `;
-  body += createRecursiveTable(matrix);
+  body += generateTable(matrix);
   octokit.rest.issues.createComment({
     owner,
     repo,
