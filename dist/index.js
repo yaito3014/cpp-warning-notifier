@@ -8505,21 +8505,28 @@ for (const file of readdirRecursively(".")) {
     });
     console.log(`job name is "${job.name}"`);
     // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
-    const jobMatch = job.name.match(/.+\((.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?),(.+?)\)/);
+    const jobMatch = job.name.match(/.+\((.+?)\)/);
     if (!jobMatch || jobMatch.length === 0) {
         console.log("job match fail");
         continue;
     }
-    const osName = jobMatch[1];
-    const osVersion = jobMatch[2];
-    const buildType = jobMatch[3];
-    const cppVersion = jobMatch[4];
-    // const boostVersion = jobMatch[5];
-    const compilerVendor = jobMatch[6];
-    const compilerVersion = jobMatch[7];
-    // const compilerExecutable = jobMatch[8];
+    const info = jobMatch[1].split(", ");
+    console.log("info: ", info);
+    const osName = info[1];
+    const osVersion = info[2];
+    const buildType = info[3];
+    const cppVersion = info[4];
+    // const boostVersion = info[5];
+    const compilerVendor = info[6];
+    const compilerVersion = info[7];
+    // const compilerExecutable = info[8];
     const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
-    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] = `[${compileResult}](<${url}>)`;
+    matrix[osName] ??= {};
+    matrix[osName][osVersion] ??= {};
+    matrix[osName][osVersion][compilerVendor] ??= {};
+    matrix[osName][osVersion][compilerVendor][compilerVersion] ??= {};
+    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= {};
+    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `[${compileResult}](<${url}>)`;
     const appendString = `1. [${job.name}](<${url}>)\n`;
     if (body) {
         body += appendString;
