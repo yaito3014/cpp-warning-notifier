@@ -8518,16 +8518,16 @@ for (const file of readdirRecursively(".")) {
     const buildType = info[2];
     const cppVersion = info[3];
     // const boostVersion = info[4];
-    const compilerVendor = info[5];
+    const compilerName = info[5];
     const compilerVersion = info[6];
     // const compilerExecutable = info[7];
     const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
     matrix[osName] ??= {};
     matrix[osName][osVersion] ??= {};
-    matrix[osName][osVersion][compilerVendor] ??= {};
-    matrix[osName][osVersion][compilerVendor][compilerVersion] ??= {};
-    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType] ??= [];
-    matrix[osName][osVersion][compilerVendor][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `<a href="${url}">${compileResult}</a>`;
+    matrix[osName][osVersion][compilerName] ??= {};
+    matrix[osName][osVersion][compilerName][compilerVersion] ??= {};
+    matrix[osName][osVersion][compilerName][compilerVersion][buildType] ??= [];
+    matrix[osName][osVersion][compilerName][compilerVersion][buildType][(parseInt(cppVersion) - 20) / 3] ??= `<a href="${url}">${compileResult}</a>`;
     // const appendString = `1. [${job.name}](<${url}>)\n`;
     // if (body) {
     //   body += appendString;
@@ -8566,8 +8566,11 @@ function generateRows(data) {
         for (const [key, val] of Object.entries(obj)) {
             if (Array.isArray(val)) {
                 body += `<th>${key}</th>`;
-                for (const elem of val) {
-                    body += `<td>${elem}</td>`;
+                for (let i = 0; i < 3; ++i) {
+                    if (val[i])
+                        body += `<td>${val[i]}</td>`;
+                    else
+                        body += `<td></td>`;
                 }
                 body += "</tr><tr>";
             }
