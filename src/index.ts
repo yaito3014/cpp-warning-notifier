@@ -93,12 +93,11 @@ for (const file of readdirRecursively(".")) {
 
   const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 
-  matrix[osName] ??= {};
-  matrix[osName][osVersion] ??= {};
-  matrix[osName][osVersion][compilerName] ??= {};
-  matrix[osName][osVersion][compilerName][compilerVersion] ??= {};
-  matrix[osName][osVersion][compilerName][compilerVersion][buildType] ??= [];
-  matrix[osName][osVersion][compilerName][compilerVersion][buildType][
+  matrix[osName + osVersion] ??= {};
+  matrix[osName + osVersion][compilerName] ??= {};
+  matrix[osName + osVersion][compilerName][compilerVersion] ??= {};
+  matrix[osName + osVersion][compilerName][compilerVersion][buildType] ??= [];
+  matrix[osName + osVersion][compilerName][compilerVersion][buildType][
     (parseInt(cppVersion) - 20) / 3
   ] ??= `<a href="${url}">${compileResult}</a>`;
 
@@ -143,7 +142,7 @@ function generateRows(data: NestedData): string {
   }
 
   function traverse(obj: NestedData, body: string = "<tr>") {
-    for (const [key, val] of Object.entries(obj)) {
+    for (const [key, val] of Object.entries(obj).toSorted()) {
       if (Array.isArray(val)) {
         body += `<th>${key}</th>`;
         for (let i = 0; i < 3; ++i) {
