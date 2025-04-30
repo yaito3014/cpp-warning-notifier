@@ -119,7 +119,7 @@ function generateTable(data: NestedData): string {
   return `
   <table>
     <thead>
-      <th colspan=5>Environment</th>
+      <th colspan=4>Environment</th>
       <th>C++20</th>
       <th>C++23</th>
       <th>C++26</th>
