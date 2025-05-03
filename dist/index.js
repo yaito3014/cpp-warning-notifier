@@ -8592,12 +8592,12 @@ if (body) {
         issue_number: pull_request_number,
     });
     for (const comment of comments) {
-        console.log(comment.user?.id, comment.user?.name);
-        if (appId === comment.user?.id) {
+        console.log(comment.user);
+        if (comment.user?.url === "https://github.com/apps/cppwarningnotifier") {
+            console.log("self-commented comment found");
             await octokit.graphql(`
         mutation {
           minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
-
           }
         }
       `);
