@@ -8598,7 +8598,6 @@ if (body) {
         mutation {
           minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
             clientMutationId
-            minimizedComment
           }
         }
       `);
