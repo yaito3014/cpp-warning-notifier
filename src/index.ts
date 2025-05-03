@@ -177,7 +177,6 @@ if (body) {
       await octokit.graphql(`
         mutation {
           minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
-
           }
         }
       `);
