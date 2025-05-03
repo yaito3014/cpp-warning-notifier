@@ -6,6 +6,7 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
+const userID = 209109756;
 const appId = parseInt(process.env.INPUT_APP_ID!);
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 const installationId = parseInt(process.env.INPUT_INSTALLATION_ID!);
@@ -173,7 +174,8 @@ if (body) {
   });
   for (const comment of comments) {
     console.log(comment.user?.id, comment.user?.name);
-    if (appId === comment.user?.id) {
+    if (userID === comment.user?.id) {
+      console.log("self-commented comment found");
       await octokit.graphql(`
         mutation {
           minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
