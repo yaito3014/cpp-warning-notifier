@@ -98,7 +98,7 @@ for (const file of readdirRecursively(".")) {
   matrix[osName + osVersion][compilerName][compilerVersion] ??= {};
   matrix[osName + osVersion][compilerName][compilerVersion][buildType] ??= [];
   matrix[osName + osVersion][compilerName][compilerVersion][buildType][
-    (parseInt(cppVersion) - 20) / 3
+    (parseInt(cppVersion) - 23) / 3
   ] ??= `<a href="${url}">${compileResult}</a>`;
 
   // const appendString = `1. [${job.name}](<${url}>)\n`;
@@ -120,7 +120,6 @@ function generateTable(data: NestedData): string {
   <table>
     <thead>
       <th colspan=4>Environment</th>
-      <th>C++20</th>
       <th>C++23</th>
       <th>C++26</th>
     </thead>
@@ -145,7 +144,7 @@ function generateRows(data: NestedData): string {
     for (const [key, val] of Object.entries(obj).toSorted()) {
       if (Array.isArray(val)) {
         body += `<th>${key}</th>`;
-        for (let i = 0; i < 3; ++i) {
+        for (let i = 0; i < 2; ++i) {
           if (val[i]) body += `<td>${val[i]}</td>`;
           else body += `<td></td>`;
         }
