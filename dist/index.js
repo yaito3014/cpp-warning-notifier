@@ -1,4 +1,3 @@
-import 'console';
 import { readFileSync, readdirSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
@@ -8586,6 +8585,24 @@ function generateRows(data) {
 body ??= generateTable(matrix);
 console.log("body is", body);
 if (body) {
+    console.log("outdates previous comments");
+    const { data: comments } = await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: pull_request_number,
+    });
+    for (const comment of comments) {
+        if (comment.user?.login === "cppwarningnotifier[bot]") {
+            console.log("self-commented comment found");
+            await octokit.graphql(`
+        mutation {
+          minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
+            clientMutationId
+          }
+        }
+      `);
+        }
+    }
     console.log("leaving comment");
     octokit.rest.issues.createComment({
         owner,
