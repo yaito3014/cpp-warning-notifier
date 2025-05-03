@@ -1,4 +1,3 @@
-import { count } from "console";
 import { readdirSync, readFileSync } from "fs";
 import { App } from "octokit";
 
@@ -166,6 +165,25 @@ body ??= generateTable(matrix);
 console.log("body is", body);
 
 if (body) {
+  console.log("outdates previous comments");
+  const { data: comments } = await octokit.rest.issues.listComments({
+    owner,
+    repo,
+    issue_number: pull_request_number,
+  });
+  for (const comment of comments) {
+    console.log(comment.user?.id, comment.user?.name);
+    if (appId === comment.user?.id) {
+      await octokit.graphql(`
+        mutation {
+          minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
+
+          }
+        }
+      `);
+    }
+  }
+
   console.log("leaving comment");
   octokit.rest.issues.createComment({
     owner,
