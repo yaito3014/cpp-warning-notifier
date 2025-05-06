@@ -46,7 +46,7 @@ for (const file of readdirRecursively(".")) {
 
   const runId = artifactMatch[1];
   const jobId = artifactMatch[2];
-  const stepId = artifactMatch[3];
+  // const stepId = artifactMatch[3];
 
   console.log("found", file, "detecting warnings...");
 
@@ -68,10 +68,20 @@ for (const file of readdirRecursively(".")) {
     job_id: parseInt(jobId),
   });
 
-  for (let i = 0; i < job.steps!.length; ++i) {
-    const step = job.steps![i];
-    console.log(i, step);
-  }
+  const stepId = (() => {
+    let i = 0;
+    while (i < job.steps!.length) {
+      const step = job.steps![i];
+      console.log(i, step);
+      if (step.name.startsWith("build") && step.status == "completed") {
+        break;
+      }
+      ++i;
+    }
+    return i + 1;
+  })();
+
+  console.log(`stepId is ${stepId}`);
 
   console.log(`job name is "${job.name}"`);
 
