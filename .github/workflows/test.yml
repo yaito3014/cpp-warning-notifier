@@ -31,7 +31,6 @@ jobs:
       - name: configure
         run: cmake -S. -Bbuild
       - name: build-${{ matrix.os.name }}
-        id: build
         run: cmake --build build >> compilation.log 2>&1
       - uses: qoomon/actions--context@v4
         id: context
