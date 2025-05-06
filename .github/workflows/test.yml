@@ -28,9 +28,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          cmake -S . -B build
-          cmake --build build >> compilation.log 2>&1
+      - name: configure
+        run: cmake -S. -Bbuild
+      - name: build-${{ matrix.os.name }}
+        run: cmake --build build >> compilation.log 2>&1
       - uses: qoomon/actions--context@v4
         id: context
       - uses: actions/upload-artifact@v4
