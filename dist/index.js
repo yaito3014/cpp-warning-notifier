@@ -8605,17 +8605,19 @@ if (body) {
         repo,
         issue_number: pull_request_number,
     });
-    for (const comment of comments) {
-        if (comment.user?.login === "cppwarningnotifier[bot]") {
-            console.log("self-commented comment found");
-            await octokit.graphql(`
-        mutation {
-          minimizeComment(input: { subjectId: "${comment.node_id}", classifier: OUTDATED }) {
-            clientMutationId
-          }
+    const sorted_comments = comments
+        .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
+        .toSorted((a, b) => new Date(a.created_at).getSeconds() -
+        new Date(b.created_at).getSeconds());
+    if (sorted_comments.length > 0) {
+        const latest_comment = sorted_comments[sorted_comments.length - 1];
+        await octokit.graphql(`
+      mutation {
+        minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
+          clientMutationId
         }
-      `);
-        }
+      }
+    `);
     }
     console.log("leaving comment");
     octokit.rest.issues.createComment({
