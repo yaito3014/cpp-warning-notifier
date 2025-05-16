@@ -202,9 +202,9 @@ if (body) {
       mutation {
         minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
           clientMutationId
-          }
-          }
-          `);
+        }
+      }
+    `);
   }
 
   console.log("leaving comment");
