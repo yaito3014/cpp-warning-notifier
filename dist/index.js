@@ -8609,14 +8609,16 @@ if (body) {
         .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
         .toSorted((a, b) => new Date(a.created_at).getSeconds() -
         new Date(b.created_at).getSeconds());
-    const latest_comment = sorted_comments[sorted_comments.length - 1];
-    await octokit.graphql(`
-        mutation {
-          minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
-            clientMutationId
+    if (sorted_comments.length > 0) {
+        const latest_comment = sorted_comments[sorted_comments.length - 1];
+        await octokit.graphql(`
+      mutation {
+        minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
+          clientMutationId
           }
-        }
-      `);
+          }
+          `);
+    }
     console.log("leaving comment");
     octokit.rest.issues.createComment({
         owner,
