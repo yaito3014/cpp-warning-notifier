@@ -207,7 +207,8 @@ if (body) {
     .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
   if (sorted_comments.length > 0) {
     const latest_comment = sorted_comments[sorted_comments.length - 1];
-    if (latest_comment.body?.includes("warning")) {
+
+    if (body.includes("warning") || latest_comment.body?.includes("warning")) {
       // minimize latest comment
       await octokit.graphql(`
         mutation {
