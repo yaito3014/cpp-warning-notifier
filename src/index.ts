@@ -192,25 +192,34 @@ if (body) {
 
   const compareDate = (a: Date, b: Date) => a == b ? 0 : a < b ? -1 : 1;
 
+  const post_comment = () => {
+    console.log("leaving comment");
+    octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull_request_number,
+      body,
+    });
+  };
+
   const sorted_comments = comments
     .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
     .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
   if (sorted_comments.length > 0) {
     const latest_comment = sorted_comments[sorted_comments.length - 1];
-    await octokit.graphql(`
-      mutation {
-        minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
-          clientMutationId
+    if (latest_comment.body?.includes("warning")) {
+      // minimize latest comment
+      await octokit.graphql(`
+        mutation {
+          minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
+            clientMutationId
+          }
         }
-      }
-    `);
+      `);
+      
+      post_comment();
+    }
+  } else {
+    post_comment();
   }
-
-  console.log("leaving comment");
-  octokit.rest.issues.createComment({
-    owner,
-    repo,
-    issue_number: pull_request_number,
-    body,
-  });
 }
