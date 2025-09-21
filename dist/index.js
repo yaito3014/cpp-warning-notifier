@@ -714,7 +714,7 @@ class RequestError extends Error {
 // pkg/dist-src/index.js
 
 // pkg/dist-src/version.js
-var VERSION$e = "0.0.0-development";
+var VERSION$e = "10.0.3";
 
 // pkg/dist-src/defaults.js
 var defaults_default = {
@@ -1065,12 +1065,27 @@ var createTokenAuth = function createTokenAuth2(token) {
   });
 };
 
-const VERSION$c = "6.1.5";
+const VERSION$c = "7.0.4";
 
 const noop$1 = () => {
 };
 const consoleWarn = console.warn.bind(console);
 const consoleError = console.error.bind(console);
+function createLogger$1(logger = {}) {
+  if (typeof logger.debug !== "function") {
+    logger.debug = noop$1;
+  }
+  if (typeof logger.info !== "function") {
+    logger.info = noop$1;
+  }
+  if (typeof logger.warn !== "function") {
+    logger.warn = consoleWarn;
+  }
+  if (typeof logger.error !== "function") {
+    logger.error = consoleError;
+  }
+  return logger;
+}
 const userAgentTrail = `octokit-core.js/${VERSION$c} ${getUserAgent()}`;
 let Octokit$1 = class Octokit {
   static VERSION = VERSION$c;
@@ -1138,15 +1153,7 @@ let Octokit$1 = class Octokit {
     }
     this.request = request.defaults(requestDefaults);
     this.graphql = withCustomRequest(this.request).defaults(requestDefaults);
-    this.log = Object.assign(
-      {
-        debug: noop$1,
-        info: noop$1,
-        warn: consoleWarn,
-        error: consoleError
-      },
-      options.log
-    );
+    this.log = createLogger$1(options.log);
     this.hook = hook;
     if (!options.authStrategy) {
       if (!options.auth) {
@@ -1204,14 +1211,16 @@ function normalizePaginatedListResponse(response) {
       data: []
     };
   }
-  const responseNeedsNormalization = "total_count" in response.data && !("url" in response.data);
+  const responseNeedsNormalization = ("total_count" in response.data || "total_commits" in response.data) && !("url" in response.data);
   if (!responseNeedsNormalization) return response;
   const incompleteResults = response.data.incomplete_results;
   const repositorySelection = response.data.repository_selection;
   const totalCount = response.data.total_count;
+  const totalCommits = response.data.total_commits;
   delete response.data.incomplete_results;
   delete response.data.repository_selection;
   delete response.data.total_count;
+  delete response.data.total_commits;
   const namespaceKey = Object.keys(response.data)[0];
   const data = response.data[namespaceKey];
   response.data = data;
@@ -1222,6 +1231,7 @@ function normalizePaginatedListResponse(response) {
     response.data.repository_selection = repositorySelection;
   }
   response.data.total_count = totalCount;
+  response.data.total_commits = totalCommits;
   return response;
 }
 
@@ -1242,6 +1252,16 @@ function iterator(octokit, route, parameters) {
           url = ((normalizedResponse.headers.link || "").match(
             /<([^<>]+)>;\s*rel="next"/
           ) || [])[1];
+          if (!url && "total_commits" in normalizedResponse.data) {
+            const parsedUrl = new URL(normalizedResponse.url);
+            const params = parsedUrl.searchParams;
+            const page = parseInt(params.get("page") || "1", 10);
+            const per_page = parseInt(params.get("per_page") || "250", 10);
+            if (page * per_page < normalizedResponse.data.total_commits) {
+              params.set("page", String(page + 1));
+              url = parsedUrl.toString();
+            }
+          }
           return { value: normalizedResponse };
         } catch (error) {
           if (error.status !== 409) throw error;
@@ -1481,7 +1501,7 @@ function paginateGraphQL(octokit) {
   };
 }
 
-const VERSION$a = "14.0.0";
+const VERSION$a = "16.1.0";
 
 const Endpoints = {
   actions: {
@@ -1954,6 +1974,9 @@ const Endpoints = {
     getGithubBillingUsageReportOrg: [
       "GET /organizations/{org}/settings/billing/usage"
     ],
+    getGithubBillingUsageReportUser: [
+      "GET /users/{username}/settings/billing/usage"
+    ],
     getGithubPackagesBillingOrg: ["GET /orgs/{org}/settings/billing/packages"],
     getGithubPackagesBillingUser: [
       "GET /users/{username}/settings/billing/packages"
@@ -2252,6 +2275,7 @@ const Endpoints = {
     ],
     listCopilotSeats: ["GET /orgs/{org}/copilot/billing/seats"]
   },
+  credentials: { revoke: ["POST /credentials/revoke"] },
   dependabot: {
     addSelectedRepoToOrgSecret: [
       "PUT /orgs/{org}/dependabot/secrets/{secret_name}/repositories/{repository_id}"
@@ -2288,11 +2312,20 @@ const Endpoints = {
     removeSelectedRepoFromOrgSecret: [
       "DELETE /orgs/{org}/dependabot/secrets/{secret_name}/repositories/{repository_id}"
     ],
+    repositoryAccessForOrg: [
+      "GET /organizations/{org}/dependabot/repository-access"
+    ],
+    setRepositoryAccessDefaultLevel: [
+      "PUT /organizations/{org}/dependabot/repository-access/default-level"
+    ],
     setSelectedReposForOrgSecret: [
       "PUT /orgs/{org}/dependabot/secrets/{secret_name}/repositories"
     ],
     updateAlert: [
       "PATCH /repos/{owner}/{repo}/dependabot/alerts/{alert_number}"
+    ],
+    updateRepositoryAccessForOrg: [
+      "PATCH /organizations/{org}/dependabot/repository-access"
     ]
   },
   dependencyGraph: {
@@ -2398,6 +2431,9 @@ const Endpoints = {
     addAssignees: [
       "POST /repos/{owner}/{repo}/issues/{issue_number}/assignees"
     ],
+    addBlockedByDependency: [
+      "POST /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by"
+    ],
     addLabels: ["POST /repos/{owner}/{repo}/issues/{issue_number}/labels"],
     addSubIssue: [
       "POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues"
@@ -2424,10 +2460,17 @@ const Endpoints = {
     getEvent: ["GET /repos/{owner}/{repo}/issues/events/{event_id}"],
     getLabel: ["GET /repos/{owner}/{repo}/labels/{name}"],
     getMilestone: ["GET /repos/{owner}/{repo}/milestones/{milestone_number}"],
+    getParent: ["GET /repos/{owner}/{repo}/issues/{issue_number}/parent"],
     list: ["GET /issues"],
     listAssignees: ["GET /repos/{owner}/{repo}/assignees"],
     listComments: ["GET /repos/{owner}/{repo}/issues/{issue_number}/comments"],
     listCommentsForRepo: ["GET /repos/{owner}/{repo}/issues/comments"],
+    listDependenciesBlockedBy: [
+      "GET /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by"
+    ],
+    listDependenciesBlocking: [
+      "GET /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocking"
+    ],
     listEvents: ["GET /repos/{owner}/{repo}/issues/{issue_number}/events"],
     listEventsForRepo: ["GET /repos/{owner}/{repo}/issues/events"],
     listEventsForTimeline: [
@@ -2453,6 +2496,9 @@ const Endpoints = {
     ],
     removeAssignees: [
       "DELETE /repos/{owner}/{repo}/issues/{issue_number}/assignees"
+    ],
+    removeDependencyBlockedBy: [
+      "DELETE /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by/{issue_id}"
     ],
     removeLabel: [
       "DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}"
@@ -2556,6 +2602,9 @@ const Endpoints = {
     convertMemberToOutsideCollaborator: [
       "PUT /orgs/{org}/outside_collaborators/{username}"
     ],
+    createArtifactStorageRecord: [
+      "POST /orgs/{org}/artifacts/metadata/storage-record"
+    ],
     createInvitation: ["POST /orgs/{org}/invitations"],
     createIssueType: ["POST /orgs/{org}/issue-types"],
     createOrUpdateCustomProperties: ["PATCH /orgs/{org}/properties/schema"],
@@ -2567,15 +2616,15 @@ const Endpoints = {
     ],
     createWebhook: ["POST /orgs/{org}/hooks"],
     delete: ["DELETE /orgs/{org}"],
+    deleteAttestationsBulk: ["POST /orgs/{org}/attestations/delete-request"],
+    deleteAttestationsById: [
+      "DELETE /orgs/{org}/attestations/{attestation_id}"
+    ],
+    deleteAttestationsBySubjectDigest: [
+      "DELETE /orgs/{org}/attestations/digest/{subject_digest}"
+    ],
     deleteIssueType: ["DELETE /orgs/{org}/issue-types/{issue_type_id}"],
     deleteWebhook: ["DELETE /orgs/{org}/hooks/{hook_id}"],
-    enableOrDisableSecurityProductOnAllOrgRepos: [
-      "POST /orgs/{org}/{security_product}/{enablement}",
-      {},
-      {
-        deprecated: "octokit.rest.orgs.enableOrDisableSecurityProductOnAllOrgRepos() is deprecated, see https://docs.github.com/rest/orgs/orgs#enable-or-disable-a-security-feature-for-an-organization"
-      }
-    ],
     get: ["GET /orgs/{org}"],
     getAllCustomProperties: ["GET /orgs/{org}/properties/schema"],
     getCustomProperty: [
@@ -2595,7 +2644,13 @@ const Endpoints = {
     ],
     list: ["GET /organizations"],
     listAppInstallations: ["GET /orgs/{org}/installations"],
+    listArtifactStorageRecords: [
+      "GET /orgs/{org}/artifacts/{subject_digest}/metadata/storage-records"
+    ],
     listAttestations: ["GET /orgs/{org}/attestations/{subject_digest}"],
+    listAttestationsBulk: [
+      "POST /orgs/{org}/attestations/bulk-list{?per_page,before,after}"
+    ],
     listBlockedUsers: ["GET /orgs/{org}/blocks"],
     listCustomPropertiesValuesForRepos: ["GET /orgs/{org}/properties/values"],
     listFailedInvitations: ["GET /orgs/{org}/failed_invitations"],
@@ -2788,6 +2843,44 @@ const Endpoints = {
     listOrgPrivateRegistries: ["GET /orgs/{org}/private-registries"],
     updateOrgPrivateRegistry: [
       "PATCH /orgs/{org}/private-registries/{secret_name}"
+    ]
+  },
+  projects: {
+    addItemForOrg: ["POST /orgs/{org}/projectsV2/{project_number}/items"],
+    addItemForUser: ["POST /users/{user_id}/projectsV2/{project_number}/items"],
+    deleteItemForOrg: [
+      "DELETE /orgs/{org}/projectsV2/{project_number}/items/{item_id}"
+    ],
+    deleteItemForUser: [
+      "DELETE /users/{user_id}/projectsV2/{project_number}/items/{item_id}"
+    ],
+    getFieldForOrg: [
+      "GET /orgs/{org}/projectsV2/{project_number}/fields/{field_id}"
+    ],
+    getFieldForUser: [
+      "GET /users/{user_id}/projectsV2/{project_number}/fields/{field_id}"
+    ],
+    getForOrg: ["GET /orgs/{org}/projectsV2/{project_number}"],
+    getForUser: ["GET /users/{user_id}/projectsV2/{project_number}"],
+    getOrgItem: ["GET /orgs/{org}/projectsV2/{project_number}/items/{item_id}"],
+    getUserItem: [
+      "GET /users/{user_id}/projectsV2/{project_number}/items/{item_id}"
+    ],
+    listFieldsForOrg: ["GET /orgs/{org}/projectsV2/{project_number}/fields"],
+    listFieldsForUser: [
+      "GET /users/{user_id}/projectsV2/{project_number}/fields"
+    ],
+    listForOrg: ["GET /orgs/{org}/projectsV2"],
+    listForUser: ["GET /users/{username}/projectsV2"],
+    listItemsForOrg: ["GET /orgs/{org}/projectsV2/{project_number}/items"],
+    listItemsForUser: [
+      "GET /users/{user_id}/projectsV2/{project_number}/items"
+    ],
+    updateItemForOrg: [
+      "PATCH /orgs/{org}/projectsV2/{project_number}/items/{item_id}"
+    ],
+    updateItemForUser: [
+      "PATCH /users/{user_id}/projectsV2/{project_number}/items/{item_id}"
     ]
   },
   pulls: {
@@ -3368,8 +3461,14 @@ const Endpoints = {
     listLocationsForAlert: [
       "GET /repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}/locations"
     ],
+    listOrgPatternConfigs: [
+      "GET /orgs/{org}/secret-scanning/pattern-configurations"
+    ],
     updateAlert: [
       "PATCH /repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}"
+    ],
+    updateOrgPatternConfigs: [
+      "PATCH /orgs/{org}/secret-scanning/pattern-configurations"
     ]
   },
   securityAdvisories: {
@@ -3479,6 +3578,15 @@ const Endpoints = {
     ],
     createPublicSshKeyForAuthenticatedUser: ["POST /user/keys"],
     createSshSigningKeyForAuthenticatedUser: ["POST /user/ssh_signing_keys"],
+    deleteAttestationsBulk: [
+      "POST /users/{username}/attestations/delete-request"
+    ],
+    deleteAttestationsById: [
+      "DELETE /users/{username}/attestations/{attestation_id}"
+    ],
+    deleteAttestationsBySubjectDigest: [
+      "DELETE /users/{username}/attestations/digest/{subject_digest}"
+    ],
     deleteEmailForAuthenticated: [
       "DELETE /user/emails",
       {},
@@ -3523,6 +3631,9 @@ const Endpoints = {
     ],
     list: ["GET /users"],
     listAttestations: ["GET /users/{username}/attestations/{subject_digest}"],
+    listAttestationsBulk: [
+      "POST /users/{username}/attestations/bulk-list{?per_page,before,after}"
+    ],
     listBlockedByAuthenticated: [
       "GET /user/blocks",
       {},
@@ -5578,10 +5689,8 @@ function urlBuilderAuthorize(base, options) {
   };
   let url = base;
   Object.keys(map).filter((k) => options[k] !== null).filter((k) => {
-    if (k !== "scopes")
-      return true;
-    if (options.clientType === "github-app")
-      return false;
+    if (k !== "scopes") return true;
+    if (options.clientType === "github-app") return false;
     return !Array.isArray(options[k]) || options[k].length > 0;
   }).map((key) => [map[key], `${options[key]}`]).forEach(([key, value], index) => {
     url += index === 0 ? `?` : "&";
@@ -6637,9 +6746,19 @@ class LruObject {
 async function getAppAuthentication({
   appId,
   privateKey,
-  timeDifference
+  timeDifference,
+  createJwt
 }) {
   try {
+    if (createJwt) {
+      const { jwt, expiresAt } = await createJwt(appId, timeDifference);
+      return {
+        type: "app",
+        token: jwt,
+        appId,
+        expiresAt
+      };
+    }
     const authOptions = {
       id: appId,
       privateKey
@@ -7039,25 +7158,27 @@ async function sendRequestWithRetries(state, request, options, createdAt, retrie
 }
 
 // pkg/dist-src/version.js
-var VERSION$4 = "7.2.1";
+var VERSION$4 = "8.1.0";
 function createAppAuth(options) {
   if (!options.appId) {
     throw new Error("[@octokit/auth-app] appId option is required");
   }
-  if (!options.privateKey) {
+  if (!options.privateKey && !options.createJwt) {
     throw new Error("[@octokit/auth-app] privateKey option is required");
+  } else if (options.privateKey && options.createJwt) {
+    throw new Error(
+      "[@octokit/auth-app] privateKey and createJwt options are mutually exclusive"
+    );
   }
   if ("installationId" in options && !options.installationId) {
     throw new Error(
       "[@octokit/auth-app] installationId is set to a falsy value"
     );
   }
-  const log = Object.assign(
-    {
-      warn: console.warn.bind(console)
-    },
-    options.log
-  );
+  const log = options.log || {};
+  if (typeof log.warn !== "function") {
+    log.warn = console.warn.bind(console);
+  }
   const request$1 = options.request || request.defaults({
     headers: {
       "user-agent": `octokit-auth-app.js/${VERSION$4} ${getUserAgent()}`
@@ -7161,7 +7282,7 @@ var createUnauthenticatedAuth = function createUnauthenticatedAuth2(options) {
 // pkg/dist-src/index.js
 
 // pkg/dist-src/version.js
-var VERSION$3 = "7.1.6";
+var VERSION$3 = "8.0.1";
 
 // pkg/dist-src/add-event-handler.js
 function addEventHandler(state, eventName, eventHandler) {
@@ -7555,7 +7676,7 @@ var OAuthApp = class {
 // pkg/dist-src/node/sign.js
 
 // pkg/dist-src/version.js
-var VERSION$2 = "5.1.1";
+var VERSION$2 = "6.0.0";
 
 // pkg/dist-src/node/sign.js
 async function sign(secret, payload) {
@@ -7608,16 +7729,24 @@ async function verifyWithFallback(secret, payload, signature, additionalSecrets)
   return false;
 }
 
-// pkg/dist-src/createLogger.js
-var createLogger = (logger) => ({
-  debug: () => {
-  },
-  info: () => {
-  },
-  warn: console.warn.bind(console),
-  error: console.error.bind(console),
-  ...logger
-});
+// pkg/dist-src/create-logger.js
+var createLogger = (logger = {}) => {
+  if (typeof logger.debug !== "function") {
+    logger.debug = () => {
+    };
+  }
+  if (typeof logger.info !== "function") {
+    logger.info = () => {
+    };
+  }
+  if (typeof logger.warn !== "function") {
+    logger.warn = console.warn.bind(console);
+  }
+  if (typeof logger.error !== "function") {
+    logger.error = console.error.bind(console);
+  }
+  return logger;
+};
 
 // pkg/dist-src/generated/webhook-names.js
 var emitterEventNames = [
@@ -7939,6 +8068,37 @@ var emitterEventNames = [
   "workflow_run.requested"
 ];
 
+// pkg/dist-src/event-handler/validate-event-name.js
+function validateEventName(eventName, options = {}) {
+  if (typeof eventName !== "string") {
+    throw new TypeError("eventName must be of type string");
+  }
+  if (eventName === "*") {
+    throw new TypeError(
+      `Using the "*" event with the regular Webhooks.on() function is not supported. Please use the Webhooks.onAny() method instead`
+    );
+  }
+  if (eventName === "error") {
+    throw new TypeError(
+      `Using the "error" event with the regular Webhooks.on() function is not supported. Please use the Webhooks.onError() method instead`
+    );
+  }
+  if (options.onUnknownEventName === "ignore") {
+    return;
+  }
+  if (!emitterEventNames.includes(eventName)) {
+    if (options.onUnknownEventName !== "warn") {
+      throw new TypeError(
+        `"${eventName}" is not a known webhook name (https://developer.github.com/v3/activity/events/types/)`
+      );
+    } else {
+      (options.log || console).warn(
+        `"${eventName}" is not a known webhook name (https://developer.github.com/v3/activity/events/types/)`
+      );
+    }
+  }
+}
+
 // pkg/dist-src/event-handler/on.js
 function handleEventHandlers(state, webhookName, handler) {
   if (!state.hooks[webhookName]) {
@@ -7953,16 +8113,10 @@ function receiverOn(state, webhookNameOrNames, handler) {
     );
     return;
   }
-  if (["*", "error"].includes(webhookNameOrNames)) {
-    const webhookName = webhookNameOrNames === "*" ? "any" : webhookNameOrNames;
-    const message = `Using the "${webhookNameOrNames}" event with the regular Webhooks.on() function is not supported. Please use the Webhooks.on${webhookName.charAt(0).toUpperCase() + webhookName.slice(1)}() method instead`;
-    throw new Error(message);
-  }
-  if (!emitterEventNames.includes(webhookNameOrNames)) {
-    state.log.warn(
-      `"${webhookNameOrNames}" is not a known webhook name (https://developer.github.com/v3/activity/events/types/)`
-    );
-  }
+  validateEventName(webhookNameOrNames, {
+    onUnknownEventName: "warn",
+    log: state.log
+  });
   handleEventHandlers(state, webhookNameOrNames, handler);
 }
 function receiverOnAny(state, handler) {
@@ -8095,9 +8249,9 @@ async function verifyAndReceive(state, event) {
     const error = new Error(
       "[@octokit/webhooks] signature does not match event payload and secret"
     );
-    return state.eventHandler.receive(
-      Object.assign(error, { event, status: 400 })
-    );
+    error.event = event;
+    error.status = 400;
+    return state.eventHandler.receive(error);
   }
   let payload;
   try {
@@ -8113,6 +8267,10 @@ async function verifyAndReceive(state, event) {
     payload
   });
 }
+
+// pkg/dist-src/middleware/node/get-payload.js
+var textDecoder = new TextDecoder("utf-8", { fatal: false });
+textDecoder.decode.bind(textDecoder);
 
 // pkg/dist-src/index.js
 var Webhooks = class {
@@ -8149,7 +8307,7 @@ var Webhooks = class {
 // pkg/dist-src/index.js
 
 // pkg/dist-src/version.js
-var VERSION$1 = "15.1.6";
+var VERSION$1 = "16.1.0";
 function webhooks(appOctokit, options) {
   return new Webhooks({
     secret: options.secret,
@@ -8480,7 +8638,7 @@ const readdirRecursively = (dir, files = []) => {
 let matrix = {};
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
-    const artifactMatch = file.match(/compilation_(\d+)_(\d+)_(\d+)_log/);
+    const artifactMatch = file.match(/compilation_(\d+)_(\d+)_.*log/);
     if (artifactMatch === null || artifactMatch.length === 0) {
         continue;
     }

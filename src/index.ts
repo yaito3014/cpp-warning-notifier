@@ -38,7 +38,7 @@ let matrix: any = {};
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
-  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_(\d+)_log/);
+  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_.*log/);
 
   if (artifactMatch === null || artifactMatch.length === 0) {
     continue;
