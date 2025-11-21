@@ -6,15 +6,18 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
-const appId = parseInt(process.env.INPUT_APP_ID!);
+const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
+const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
+
+const appId = 1230093;
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 const installationId = parseInt(process.env.INPUT_INSTALLATION_ID!);
 
 const app = new App({ appId, privateKey });
+const url = await app.getInstallationUrl();
+console.log(url);
 const octokit = await app.getInstallationOctokit(installationId);
 
-const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
-const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
 let body: string | null = null;
 
