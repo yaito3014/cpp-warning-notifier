@@ -9,10 +9,8 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
 const appId = parseInt(process.env.INPUT_APP_ID!);
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 const installationId = parseInt(process.env.INPUT_INSTALLATION_ID!);
-const clientId = process.env.INPUT_CLIENT_ID!;
-const clientSecret = process.env.INPUT_CLIENT_SECRET!;
 
-const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
+const app = new App({ appId, privateKey });
 const octokit = await app.getInstallationOctokit(installationId);
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
@@ -217,7 +215,7 @@ if (body) {
           }
         }
       `);
-      
+
       post_comment();
     }
   } else {
