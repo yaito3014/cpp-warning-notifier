@@ -77,7 +77,7 @@ for (const file of readdirRecursively(".")) {
       const step = job.steps![i];
       // console.log(i, step);
       if (
-        step.name.toLowerCase().match(step_regex) &&
+        step.name.match(step_regex) &&
         step.status === "completed" &&
         step.conclusion === "success"
       ) {

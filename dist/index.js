@@ -8666,7 +8666,7 @@ for (const file of readdirRecursively(".")) {
         while (i < job.steps.length) {
             const step = job.steps[i];
             // console.log(i, step);
-            if (step.name.toLowerCase().match(step_regex) &&
+            if (step.name.match(step_regex) &&
                 step.status === "completed" &&
                 step.conclusion === "success") {
                 break;
