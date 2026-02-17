@@ -32,7 +32,7 @@ jobs:
         run: cmake -S. -Bbuild
       - name: build-${{ matrix.os.name }}
         run: cmake --build build >> compilation.log 2>&1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: compilation_${{ github.run_id }}_${{ job.check_run_id }}_log
           path: compilation*.log
