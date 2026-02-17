@@ -13,6 +13,10 @@ inputs:
     required: true
   ARTIFACT_REGEX:
     required: true
+  ROW_HEADERS:
+    required: true
+  COLUMN_HEADER:
+    required: true
 
 runs:
   using: "node20"
