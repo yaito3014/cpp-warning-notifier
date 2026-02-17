@@ -51,4 +51,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           STEP_REGEX: build-.*
-          JOB_REGEX: .*\((?:(.*?),)+\)
+          JOB_REGEX: compile \((?<osName>.+?), (?<osVersion>.+?), (?<config>.+?), (?<cppVersion>.+?), (?<vendorName>.+?), (?<vendorVersion>.+?)\)
