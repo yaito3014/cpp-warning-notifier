@@ -8642,7 +8642,6 @@ for (const file of readdirRecursively(".")) {
     }
     const runId = artifactMatch[1];
     const jobId = artifactMatch[2];
-    // const stepId = artifactMatch[3];
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
     const compileResult = (() => {
