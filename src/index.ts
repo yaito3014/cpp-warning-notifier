@@ -12,9 +12,6 @@ const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 const appId = 1230093;
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 
-console.log(appId);
-console.log(privateKey);
-
 const app = new App({ appId, privateKey });
 const { data: installationId } = await app.octokit.request("POST /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installationId);
