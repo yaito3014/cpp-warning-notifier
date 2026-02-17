@@ -9,6 +9,7 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
+const artifact_regex = process.env.INPUT_ARTIFACT_REGEX!;
 const job_regex = process.env.INPUT_JOB_REGEX!;
 const step_regex = process.env.INPUT_STEP_REGEX!;
 
@@ -39,14 +40,14 @@ let matrix: any = {};
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
-  const artifactMatch = file.match(/compilation_(\d+)_(\d+)_log/);
+  const artifactMatch = file.match(artifact_regex);
 
   if (artifactMatch === null || artifactMatch.length === 0) {
     continue;
   }
 
-  const runId = artifactMatch[1];
-  const jobId = artifactMatch[2];
+  const runId = artifactMatch.groups!.runId;
+  const jobId = artifactMatch.groups!.jobId;
 
   console.log("found", file, "detecting warnings...");
 
@@ -72,7 +73,7 @@ for (const file of readdirRecursively(".")) {
     let i = 0;
     while (i < job.steps!.length) {
       const step = job.steps![i];
-      console.log(i, step);
+      // console.log(i, step);
       if (
         step.name.toLowerCase().match(step_regex) &&
         step.status === "completed" &&
@@ -98,7 +99,7 @@ for (const file of readdirRecursively(".")) {
 
   console.log(jobMatch);
 
-  // const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
+  const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 }
 
 console.log(matrix);
@@ -107,49 +108,8 @@ type NestedData = {
   [keys: string]: NestedData | string[];
 };
 
-function generateTable(data: NestedData): string {
-  return `
-  <table>
-    <thead>
-      <th colspan=4>Environment</th>
-      <th>C++23</th>
-      <th>C++26</th>
-    </thead>
-    <tbody>
-    ${generateRows(data)}
-    </tbody>
-  </table>
-  `;
-}
-
-function generateRows(data: NestedData): string {
-  function count(obj: NestedData) {
-    let res = 0;
-    for (const [_, val] of Object.entries(obj)) {
-      if (Array.isArray(val)) ++res;
-      else res += count(val);
-    }
-    return res;
-  }
-
-  function traverse(obj: NestedData, body: string = "<tr>") {
-    for (const [key, val] of Object.entries(obj).toSorted()) {
-      if (Array.isArray(val)) {
-        body += `<th>${key}</th>`;
-        for (let i = 0; i < 2; ++i) {
-          if (val[i]) body += `<td>${val[i]}</td>`;
-          else body += `<td></td>`;
-        }
-        body += "</tr><tr>";
-      } else {
-        body += `<th rowspan="${count(val)}">${key}</th>`;
-        body = traverse(val, body);
-      }
-    }
-    return body;
-  }
-  let res = traverse(data);
-  return res.substring(0, res.length - "</tr><tr>".length); // remove trailing <tr></tr>
+function generateTable(matrix: NestedData): string {
+  return "まだなにもないよ";
 }
 
 body ??= generateTable(matrix);
@@ -179,6 +139,7 @@ if (body) {
   const sorted_comments = comments
     .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
     .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
+
   if (sorted_comments.length > 0) {
     const latest_comment = sorted_comments[sorted_comments.length - 1];
 

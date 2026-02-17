@@ -4,16 +4,15 @@ description: Notifies about C++ warnings in GitHub Actions
 
 inputs:
   GITHUB_TOKEN:
-    description: GitHub token for authentication
     required: true
   PRIVATE_KEY:
-    description: Private key for GitHub App
     required: true
   JOB_REGEX:
-    description: regex for job name parsing
     required: true
   STEP_REGEX:
-    description: regex for step name filtering
+    required: true
+  ARTIFACT_REGEX:
+    required: true
 
 runs:
   using: "node20"
