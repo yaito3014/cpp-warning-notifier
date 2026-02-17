@@ -101,6 +101,7 @@ for (const file of readdirRecursively(".")) {
 
   rows.push({
     url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+    status: compileResult,
     ...jobMatch.groups!,
   });
 }

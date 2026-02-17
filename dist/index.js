@@ -8647,7 +8647,7 @@ for (const file of readdirRecursively(".")) {
     const jobId = artifactMatch.groups.jobId;
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
-    (() => {
+    const compileResult = (() => {
         const warningMatch = compilationOutput.match(/warning( .\d+)?:/);
         if (warningMatch && warningMatch.length > 0)
             return "⚠️warning";
@@ -8684,6 +8684,7 @@ for (const file of readdirRecursively(".")) {
     }
     rows.push({
         url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+        status: compileResult,
         ...jobMatch.groups,
     });
 }
