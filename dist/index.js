@@ -688,12 +688,13 @@ class RequestError extends Error {
    */
   response;
   constructor(message, statusCode, options) {
-    super(message);
+    super(message, { cause: options.cause });
     this.name = "HttpError";
     this.status = Number.parseInt(statusCode);
     if (Number.isNaN(this.status)) {
       this.status = 0;
     }
+    /* v8 ignore else -- @preserve -- Bug with vitest coverage where it sees an else branch that doesn't exist */
     if ("response" in options) {
       this.response = options.response;
     }
@@ -714,7 +715,7 @@ class RequestError extends Error {
 // pkg/dist-src/index.js
 
 // pkg/dist-src/version.js
-var VERSION$e = "10.0.3";
+var VERSION$e = "10.0.7";
 
 // pkg/dist-src/defaults.js
 var defaults_default = {
@@ -732,6 +733,7 @@ function isPlainObject(value) {
   const Ctor = Object.prototype.hasOwnProperty.call(proto, "constructor") && proto.constructor;
   return typeof Ctor === "function" && Ctor instanceof Ctor && Function.prototype.call(Ctor) === Function.prototype.call(value);
 }
+var noop$2 = () => "";
 async function fetchWrapper(requestOptions) {
   const fetch = requestOptions.request?.fetch || globalThis.fetch;
   if (!fetch) {
@@ -833,7 +835,7 @@ async function fetchWrapper(requestOptions) {
 async function getResponseData(response) {
   const contentType = response.headers.get("content-type");
   if (!contentType) {
-    return response.text().catch(() => "");
+    return response.text().catch(noop$2);
   }
   const mimetype = fastContentTypeParseExports.safeParse(contentType);
   if (isJSONResponse(mimetype)) {
@@ -845,9 +847,12 @@ async function getResponseData(response) {
       return text;
     }
   } else if (mimetype.type.startsWith("text/") || mimetype.parameters.charset?.toLowerCase() === "utf-8") {
-    return response.text().catch(() => "");
+    return response.text().catch(noop$2);
   } else {
-    return response.arrayBuffer().catch(() => new ArrayBuffer(0));
+    return response.arrayBuffer().catch(
+      /* v8 ignore next -- @preserve */
+      () => new ArrayBuffer(0)
+    );
   }
 }
 function isJSONResponse(mimetype) {
@@ -894,6 +899,8 @@ function withDefaults$1(oldEndpoint, newDefaults) {
 
 // pkg/dist-src/index.js
 var request = withDefaults$1(endpoint, defaults_default);
+/* v8 ignore next -- @preserve */
+/* v8 ignore else -- @preserve */
 
 // pkg/dist-src/index.js
 
@@ -1065,7 +1072,7 @@ var createTokenAuth = function createTokenAuth2(token) {
   });
 };
 
-const VERSION$c = "7.0.4";
+const VERSION$c = "7.0.6";
 
 const noop$1 = () => {
 };
@@ -8611,15 +8618,13 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
     console.log("not a pull request, exiting.");
     process.exit(0);
 }
-const appId = parseInt(process.env.INPUT_APP_ID);
-const privateKey = process.env.INPUT_PRIVATE_KEY;
-const installationId = parseInt(process.env.INPUT_INSTALLATION_ID);
-const clientId = process.env.INPUT_CLIENT_ID;
-const clientSecret = process.env.INPUT_CLIENT_SECRET;
-const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
-const octokit = await app.getInstallationOctokit(installationId);
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/");
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]);
+const appId = 1230093;
+const privateKey = process.env.INPUT_PRIVATE_KEY;
+const app = new App({ appId, privateKey });
+const { data: installationId } = await app.octokit.request("POST /repos/{owner}/{repo}/installation", { owner, repo });
+const octokit = await app.getInstallationOctokit(installationId);
 let body = null;
 const readdirRecursively = (dir, files = []) => {
     const dirents = readdirSync(dir, { withFileTypes: true });
