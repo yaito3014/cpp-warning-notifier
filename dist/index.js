@@ -8674,7 +8674,6 @@ for (const file of readdirRecursively(".")) {
     })();
     console.log(`stepId is ${stepId}`);
     console.log(`job name is "${job.name}"`);
-    // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
     const jobMatch = job.name.match(/.+\((.+?)\)/);
     if (!jobMatch || jobMatch.length === 0) {
         console.log("job match fail");
@@ -8696,12 +8695,6 @@ for (const file of readdirRecursively(".")) {
     matrix[osName + osVersion][compilerName][compilerVersion] ??= {};
     matrix[osName + osVersion][compilerName][compilerVersion][buildType] ??= [];
     matrix[osName + osVersion][compilerName][compilerVersion][buildType][(parseInt(cppVersion) - 23) / 3] ??= `<a href="${url}">${compileResult}</a>`;
-    // const appendString = `1. [${job.name}](<${url}>)\n`;
-    // if (body) {
-    //   body += appendString;
-    // } else {
-    //   body = appendString;
-    // }
 }
 console.log(matrix);
 function generateTable(data) {
