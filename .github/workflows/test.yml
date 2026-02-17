@@ -50,3 +50,5 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          STEP_REGEX: build-.*
+          JOB_REGEX: .*\((?:(.*?),)+\)

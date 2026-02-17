@@ -9,6 +9,9 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
 
+const job_regex = process.env.INPUT_JOB_REGEX!;
+const step_regex = process.env.INPUT_STEP_REGEX!;
+
 const appId = 1230093;
 const privateKey = process.env.INPUT_PRIVATE_KEY!;
 
@@ -71,7 +74,7 @@ for (const file of readdirRecursively(".")) {
       const step = job.steps![i];
       console.log(i, step);
       if (
-        step.name.toLowerCase().match(/build( \(.+\))?/) &&
+        step.name.toLowerCase().match(step_regex) &&
         step.status === "completed" &&
         step.conclusion === "success"
       ) {
@@ -86,34 +89,16 @@ for (const file of readdirRecursively(".")) {
 
   console.log(`job name is "${job.name}"`);
 
-  const jobMatch = job.name.match(/.+\((.+?)\)/);
+  const jobMatch = job.name.match(job_regex);
+
   if (!jobMatch || jobMatch.length === 0) {
     console.log("job match fail");
     continue;
   }
 
-  const info = jobMatch[1].split(", ");
+  console.log(jobMatch);
 
-  console.log("info: ", info);
-
-  const osName = info[0];
-  const osVersion = info[1];
-  const buildType = info[2];
-  const cppVersion = info[3];
-  // const boostVersion = info[4];
-  const compilerName = info[5];
-  const compilerVersion = info[6];
-  // const compilerExecutable = info[7];
-
-  const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
-
-  matrix[osName + osVersion] ??= {};
-  matrix[osName + osVersion][compilerName] ??= {};
-  matrix[osName + osVersion][compilerName][compilerVersion] ??= {};
-  matrix[osName + osVersion][compilerName][compilerVersion][buildType] ??= [];
-  matrix[osName + osVersion][compilerName][compilerVersion][buildType][
-    (parseInt(cppVersion) - 23) / 3
-  ] ??= `<a href="${url}">${compileResult}</a>`;
+  // const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
 }
 
 console.log(matrix);

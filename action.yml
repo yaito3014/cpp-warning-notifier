@@ -9,7 +9,12 @@ inputs:
   PRIVATE_KEY:
     description: Private key for GitHub App
     required: true
+  JOB_REGEX:
+    description: regex for job name parsing
+    required: true
+  STEP_REGEX:
+    description: regex for step name filtering
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"
