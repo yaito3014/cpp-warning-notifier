@@ -8636,14 +8636,14 @@ const readdirRecursively = (dir, files = []) => {
     }
     return files;
 };
-let matrix = {};
+let rows = [];
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
     const artifactMatch = file.match(artifact_regex);
     if (artifactMatch === null || artifactMatch.length === 0) {
         continue;
     }
-    artifactMatch.groups.runId;
+    const runId = artifactMatch.groups.runId;
     const jobId = artifactMatch.groups.jobId;
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
@@ -8682,13 +8682,85 @@ for (const file of readdirRecursively(".")) {
         console.log("job match fail");
         continue;
     }
-    console.log(jobMatch);
+    rows.push({
+        url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+        ...jobMatch.groups,
+    });
 }
-console.log(matrix);
-function generateTable(matrix) {
-    return "まだなにもないよ";
+console.log("rows", rows);
+const ROW_HEADER_FIELDS = JSON.parse(process.env.INPUT_ROW_HEADERS);
+const COLUMN_FIELD = process.env.INPUT_COLUMN_HEADER;
+function escapeHtml(s) {
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
-body ??= generateTable();
+function renderRows(rows, depth, columns, cellMap) {
+    if (depth === ROW_HEADER_FIELDS.length) {
+        const representative = rows[0];
+        const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => representative[f]));
+        const tds = columns.map((col) => {
+            const cell = cellMap.get(JSON.stringify([rowKey, col]));
+            if (!cell)
+                return "<td></td>";
+            return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+        });
+        return [`${tds.join("")}</tr>`];
+    }
+    const field = ROW_HEADER_FIELDS[depth];
+    const groups = groupBy(rows, (r) => r[field] ?? "");
+    const result = [];
+    for (const [value, group] of groups) {
+        const childRows = renderRows(group, depth + 1, columns, cellMap);
+        const rowspan = childRows.length;
+        const th = rowspan > 1
+            ? `<th rowspan="${rowspan}">${escapeHtml(value)}</th>`
+            : `<th>${escapeHtml(value)}</th>`;
+        childRows[0] = `${th}${childRows[0]}`;
+        result.push(...childRows);
+    }
+    return result;
+}
+function groupBy(items, keyFn) {
+    const map = new Map();
+    for (const item of items) {
+        const key = keyFn(item);
+        let group = map.get(key);
+        if (!group) {
+            group = [];
+            map.set(key, group);
+        }
+        group.push(item);
+    }
+    return [...map.entries()];
+}
+function generateTable(entries) {
+    const columns = [...new Set(entries.map((e) => e[COLUMN_FIELD] ?? ""))].sort((a, b) => Number(a) - Number(b));
+    const sorted = [...entries].sort((a, b) => {
+        for (const field of ROW_HEADER_FIELDS) {
+            const av = a[field] ?? "";
+            const bv = b[field] ?? "";
+            if (av < bv)
+                return -1;
+            if (av > bv)
+                return 1;
+        }
+        return 0;
+    });
+    const cellMap = new Map();
+    for (const entry of sorted) {
+        const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => entry[f]));
+        cellMap.set(JSON.stringify([rowKey, entry[COLUMN_FIELD]]), entry);
+    }
+    const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
+    const thead = `<thead><tr><th colspan="${ROW_HEADER_FIELDS.length}">Environment</th>${theadCols}</tr></thead>`;
+    const rows = renderRows(sorted, 0, columns, cellMap);
+    const tbody = `<tbody>${rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
+    return `<table>${thead}${tbody}</table>`;
+}
+body ??= generateTable(rows);
 console.log("body is", body);
 if (body) {
     console.log("outdates previous comments");

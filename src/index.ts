@@ -35,7 +35,9 @@ const readdirRecursively = (dir: string, files: string[] = []) => {
   return files;
 };
 
-let matrix: any = {};
+type Row = Record<string, string>;
+
+let rows: Row[] = [];
 
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
@@ -97,22 +99,106 @@ for (const file of readdirRecursively(".")) {
     continue;
   }
 
-  console.log(jobMatch);
-
-  const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
+  rows.push({
+    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+    ...jobMatch.groups!,
+  });
 }
 
-console.log(matrix);
+console.log("rows", rows);
 
-type NestedData = {
-  [keys: string]: NestedData | string[];
-};
+const ROW_HEADER_FIELDS: any[] = JSON.parse(process.env.INPUT_ROW_HEADERS!);
+const COLUMN_FIELD = process.env.INPUT_COLUMN_HEADER!;
 
-function generateTable(matrix: NestedData): string {
-  return "まだなにもないよ";
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-body ??= generateTable(matrix);
+function renderRows(
+  rows: Row[],
+  depth: number,
+  columns: string[],
+  cellMap: Map<string, Row>,
+): string[] {
+  if (depth === ROW_HEADER_FIELDS.length) {
+    const representative = rows[0];
+    const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => representative[f]));
+    const tds = columns.map((col) => {
+      const cell = cellMap.get(JSON.stringify([rowKey, col]));
+      if (!cell) return "<td></td>";
+      return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+    });
+    return [`${tds.join("")}</tr>`];
+  }
+
+  const field = ROW_HEADER_FIELDS[depth];
+  const groups = groupBy(rows, (r) => r[field] ?? "");
+  const result: string[] = [];
+
+  for (const [value, group] of groups) {
+    const childRows = renderRows(group, depth + 1, columns, cellMap);
+    const rowspan = childRows.length;
+    const th =
+      rowspan > 1
+        ? `<th rowspan="${rowspan}">${escapeHtml(value)}</th>`
+        : `<th>${escapeHtml(value)}</th>`;
+
+    childRows[0] = `${th}${childRows[0]}`;
+    result.push(...childRows);
+  }
+
+  return result;
+}
+
+function groupBy<T>(items: T[], keyFn: (item: T) => string): [string, T[]][] {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyFn(item);
+    let group = map.get(key);
+    if (!group) {
+      group = [];
+      map.set(key, group);
+    }
+    group.push(item);
+  }
+  return [...map.entries()];
+}
+
+function generateTable(entries: Row[]): string {
+  const columns = [...new Set(entries.map((e) => e[COLUMN_FIELD] ?? ""))].sort(
+    (a, b) => Number(a) - Number(b),
+  );
+
+  const sorted = [...entries].sort((a, b) => {
+    for (const field of ROW_HEADER_FIELDS) {
+      const av = a[field] ?? "";
+      const bv = b[field] ?? "";
+      if (av < bv) return -1;
+      if (av > bv) return 1;
+    }
+    return 0;
+  });
+
+  const cellMap = new Map<string, Row>();
+  for (const entry of sorted) {
+    const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => entry[f]));
+    cellMap.set(JSON.stringify([rowKey, entry[COLUMN_FIELD]]), entry);
+  }
+
+  const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
+  const thead = `<thead><tr><th colspan="${ROW_HEADER_FIELDS.length}">Environment</th>${theadCols}</tr></thead>`;
+
+  const rows = renderRows(sorted, 0, columns, cellMap);
+  const tbody = `<tbody>${rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
+
+  return `<table>${thead}${tbody}</table>`;
+}
+
+body ??= generateTable(rows);
 
 console.log("body is", body);
 
