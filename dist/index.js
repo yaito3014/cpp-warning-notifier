@@ -8611,15 +8611,16 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
     console.log("not a pull request, exiting.");
     process.exit(0);
 }
-const appId = parseInt(process.env.INPUT_APP_ID);
-const privateKey = process.env.INPUT_PRIVATE_KEY;
-const installationId = parseInt(process.env.INPUT_INSTALLATION_ID);
-const clientId = process.env.INPUT_CLIENT_ID;
-const clientSecret = process.env.INPUT_CLIENT_SECRET;
-const app = new App({ appId, privateKey, oauth: { clientId, clientSecret } });
-const octokit = await app.getInstallationOctokit(installationId);
 const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/");
 const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]);
+const artifact_regex = process.env.INPUT_ARTIFACT_REGEX;
+const job_regex = process.env.INPUT_JOB_REGEX;
+const step_regex = process.env.INPUT_STEP_REGEX;
+const appId = 1230093;
+const privateKey = process.env.INPUT_PRIVATE_KEY;
+const app = new App({ appId, privateKey });
+const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
+const octokit = await app.getInstallationOctokit(installation.id);
 let body = null;
 const readdirRecursively = (dir, files = []) => {
     const dirents = readdirSync(dir, { withFileTypes: true });
@@ -8635,16 +8636,15 @@ const readdirRecursively = (dir, files = []) => {
     }
     return files;
 };
-let matrix = {};
+let rows = [];
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
-    const artifactMatch = file.match(/compilation_(\d+)_(\d+)_.*log/);
+    const artifactMatch = file.match(artifact_regex);
     if (artifactMatch === null || artifactMatch.length === 0) {
         continue;
     }
-    const runId = artifactMatch[1];
-    const jobId = artifactMatch[2];
-    // const stepId = artifactMatch[3];
+    const runId = artifactMatch.groups.runId;
+    const jobId = artifactMatch.groups.jobId;
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
     const compileResult = (() => {
@@ -8665,8 +8665,8 @@ for (const file of readdirRecursively(".")) {
         let i = 0;
         while (i < job.steps.length) {
             const step = job.steps[i];
-            console.log(i, step);
-            if (step.name.toLowerCase().match(/build( \(.+\))?/) &&
+            // console.log(i, step);
+            if (step.name.toLowerCase().match(step_regex) &&
                 step.status === "completed" &&
                 step.conclusion === "success") {
                 break;
@@ -8677,84 +8677,91 @@ for (const file of readdirRecursively(".")) {
     })();
     console.log(`stepId is ${stepId}`);
     console.log(`job name is "${job.name}"`);
-    // build (ubuntu, 24.04, Release, 20, 1.86.0, GNU, 13, g++-13)
-    const jobMatch = job.name.match(/.+\((.+?)\)/);
+    const jobMatch = job.name.match(job_regex);
     if (!jobMatch || jobMatch.length === 0) {
         console.log("job match fail");
         continue;
     }
-    const info = jobMatch[1].split(", ");
-    console.log("info: ", info);
-    const osName = info[0];
-    const osVersion = info[1];
-    const buildType = info[2];
-    const cppVersion = info[3];
-    // const boostVersion = info[4];
-    const compilerName = info[5];
-    const compilerVersion = info[6];
-    // const compilerExecutable = info[7];
-    const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`;
-    matrix[osName + osVersion] ??= {};
-    matrix[osName + osVersion][compilerName] ??= {};
-    matrix[osName + osVersion][compilerName][compilerVersion] ??= {};
-    matrix[osName + osVersion][compilerName][compilerVersion][buildType] ??= [];
-    matrix[osName + osVersion][compilerName][compilerVersion][buildType][(parseInt(cppVersion) - 23) / 3] ??= `<a href="${url}">${compileResult}</a>`;
-    // const appendString = `1. [${job.name}](<${url}>)\n`;
-    // if (body) {
-    //   body += appendString;
-    // } else {
-    //   body = appendString;
-    // }
+    rows.push({
+        url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+        status: compileResult,
+        ...jobMatch.groups,
+    });
 }
-console.log(matrix);
-function generateTable(data) {
-    return `
-  <table>
-    <thead>
-      <th colspan=4>Environment</th>
-      <th>C++23</th>
-      <th>C++26</th>
-    </thead>
-    <tbody>
-    ${generateRows(data)}
-    </tbody>
-  </table>
-  `;
+console.log("rows", rows);
+const ROW_HEADER_FIELDS = JSON.parse(process.env.INPUT_ROW_HEADERS);
+const COLUMN_FIELD = process.env.INPUT_COLUMN_HEADER;
+function escapeHtml(s) {
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
-function generateRows(data) {
-    function count(obj) {
-        let res = 0;
-        for (const [_, val] of Object.entries(obj)) {
-            if (Array.isArray(val))
-                ++res;
-            else
-                res += count(val);
-        }
-        return res;
+function renderRows(rows, depth, columns, cellMap) {
+    if (depth === ROW_HEADER_FIELDS.length) {
+        const representative = rows[0];
+        const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => representative[f]));
+        const tds = columns.map((col) => {
+            const cell = cellMap.get(JSON.stringify([rowKey, col]));
+            if (!cell)
+                return "<td></td>";
+            return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+        });
+        return [`${tds.join("")}</tr>`];
     }
-    function traverse(obj, body = "<tr>") {
-        for (const [key, val] of Object.entries(obj).toSorted()) {
-            if (Array.isArray(val)) {
-                body += `<th>${key}</th>`;
-                for (let i = 0; i < 2; ++i) {
-                    if (val[i])
-                        body += `<td>${val[i]}</td>`;
-                    else
-                        body += `<td></td>`;
-                }
-                body += "</tr><tr>";
-            }
-            else {
-                body += `<th rowspan="${count(val)}">${key}</th>`;
-                body = traverse(val, body);
-            }
-        }
-        return body;
+    const field = ROW_HEADER_FIELDS[depth];
+    const groups = groupBy(rows, (r) => r[field] ?? "");
+    const result = [];
+    for (const [value, group] of groups) {
+        const childRows = renderRows(group, depth + 1, columns, cellMap);
+        const rowspan = childRows.length;
+        const th = rowspan > 1
+            ? `<th rowspan="${rowspan}">${escapeHtml(value)}</th>`
+            : `<th>${escapeHtml(value)}</th>`;
+        childRows[0] = `${th}${childRows[0]}`;
+        result.push(...childRows);
     }
-    let res = traverse(data);
-    return res.substring(0, res.length - "</tr><tr>".length); // remove trailing <tr></tr>
+    return result;
 }
-body ??= generateTable(matrix);
+function groupBy(items, keyFn) {
+    const map = new Map();
+    for (const item of items) {
+        const key = keyFn(item);
+        let group = map.get(key);
+        if (!group) {
+            group = [];
+            map.set(key, group);
+        }
+        group.push(item);
+    }
+    return [...map.entries()];
+}
+function generateTable(entries) {
+    const columns = [...new Set(entries.map((e) => e[COLUMN_FIELD] ?? ""))].sort((a, b) => Number(a) - Number(b));
+    const sorted = [...entries].sort((a, b) => {
+        for (const field of ROW_HEADER_FIELDS) {
+            const av = a[field] ?? "";
+            const bv = b[field] ?? "";
+            if (av < bv)
+                return -1;
+            if (av > bv)
+                return 1;
+        }
+        return 0;
+    });
+    const cellMap = new Map();
+    for (const entry of sorted) {
+        const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => entry[f]));
+        cellMap.set(JSON.stringify([rowKey, entry[COLUMN_FIELD]]), entry);
+    }
+    const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
+    const thead = `<thead><tr><th colspan="${ROW_HEADER_FIELDS.length}">Environment</th>${theadCols}</tr></thead>`;
+    const rows = renderRows(sorted, 0, columns, cellMap);
+    const tbody = `<tbody>${rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
+    return `<table>${thead}${tbody}</table>`;
+}
+body ??= generateTable(rows);
 console.log("body is", body);
 if (body) {
     console.log("outdates previous comments");

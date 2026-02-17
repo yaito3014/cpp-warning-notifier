@@ -4,24 +4,16 @@ description: Notifies about C++ warnings in GitHub Actions
 
 inputs:
   GITHUB_TOKEN:
-    description: GitHub token for authentication
-    required: true
-  APP_ID:
-    description: GitHub App ID
     required: true
   PRIVATE_KEY:
-    description: Private key for GitHub App
     required: true
-  CLIENT_ID:
-    description: Client ID for GitHub App
+  JOB_REGEX:
     required: true
-  CLIENT_SECRET:
-    description: Client secret for GitHub App
+  STEP_REGEX:
     required: true
-  INSTALLATION_ID:
-    description: Installation ID for GitHub App
+  ARTIFACT_REGEX:
     required: true
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"
