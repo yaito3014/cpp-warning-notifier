@@ -69,10 +69,16 @@ for (const file of readdirRecursively(".")) {
   const compilationOutput = readFileSync(file).toString();
 
   let compileResult = "✅success";
+  let firstIssueLine = 1;
+  const lines = compilationOutput.split("\n");
   if (compilationOutput.match(/warning( .\d+)?:/)) {
     compileResult = "⚠️warning";
+    const idx = lines.findIndex((line) => line.match(/warning( .\d+)?:/));
+    if (idx !== -1) firstIssueLine = idx + 1;
   } else if (compilationOutput.match(/error( .\d+)?:/)) {
     compileResult = "❌error";
+    const idx = lines.findIndex((line) => line.match(/error( .\d+)?:/));
+    if (idx !== -1) firstIssueLine = idx + 1;
   }
 
   const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
@@ -102,7 +108,7 @@ for (const file of readdirRecursively(".")) {
   }
 
   rows.push({
-    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:${firstIssueLine}`,
     status: compileResult,
     ...jobMatch.groups,
   });
