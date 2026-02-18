@@ -123,13 +123,14 @@ function renderRows(
   rows: Row[],
   depth: number,
   columns: string[],
-  cellMap: Map<string, Row>,
+  cellMap: Map<string, Map<string, Row>>,
 ): string[] {
   if (depth === ROW_HEADER_FIELDS.length) {
     const representative = rows[0];
     const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => representative[f]));
+    const colMap = cellMap.get(rowKey);
     const tds = columns.map((col) => {
-      const cell = cellMap.get(JSON.stringify([rowKey, col]));
+      const cell = colMap?.get(col);
       if (!cell) return "<td></td>";
       return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
     });
@@ -184,10 +185,15 @@ function generateTable(entries: Row[]): string {
     return 0;
   });
 
-  const cellMap = new Map<string, Row>();
+  const cellMap = new Map<string, Map<string, Row>>();
   for (const entry of sorted) {
     const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => entry[f]));
-    cellMap.set(JSON.stringify([rowKey, entry[COLUMN_FIELD]]), entry);
+    let colMap = cellMap.get(rowKey);
+    if (!colMap) {
+      colMap = new Map();
+      cellMap.set(rowKey, colMap);
+    }
+    colMap.set(entry[COLUMN_FIELD], entry);
   }
 
   const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
