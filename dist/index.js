@@ -8622,6 +8622,7 @@ const current_run_id = parseInt(requireEnv("INPUT_RUN_ID"));
 const current_job_id = parseInt(requireEnv("INPUT_JOB_ID"));
 const [owner, repo] = githubRepository.split("/");
 const pull_request_number = parseInt(githubRef.split("/")[2]);
+const ignore_no_marker = requireEnv("INPUT_IGNORE_NO_MARKER") === 'true';
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 const appId = 1230093;
@@ -8658,8 +8659,14 @@ for (const job of jobList.jobs) {
     console.log(`total lines: ${lines.length}`);
     let offset = 0;
     const offsetIdx = lines.findIndex((line) => line.match("CPPWARNINGNOTIFIER_LOG_MARKER"));
-    if (offsetIdx !== -1)
+    if (offsetIdx !== -1) {
         offset = offsetIdx;
+    }
+    else {
+        if (ignore_no_marker) {
+            continue;
+        }
+    }
     let compileResult = "✅success";
     let firstIssueLine = 1;
     const warningIdx = lines.findIndex((line) => line.match(warningRegex));

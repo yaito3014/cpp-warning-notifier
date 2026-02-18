@@ -3,6 +3,8 @@ author: yaito3014
 description: Notifies about C++ warnings in GitHub Actions
 
 inputs:
+  IGNORE_NO_MARKER:
+    default: false
   RUN_ID:
     requird: true
   JOB_ID:
