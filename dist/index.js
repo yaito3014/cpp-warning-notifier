@@ -8641,11 +8641,11 @@ const readdirRecursively = (dir) => {
     }
     return files;
 };
-let rows = [];
+const rows = [];
 for (const file of readdirRecursively(".")) {
     console.log("looking", file, "deciding whether skip or not...");
     const artifactMatch = file.match(artifact_regex);
-    if (artifactMatch === null || artifactMatch.length === 0) {
+    if (artifactMatch === null) {
         continue;
     }
     if (!artifactMatch.groups?.runId || !artifactMatch.groups?.jobId) {
@@ -8675,7 +8675,7 @@ for (const file of readdirRecursively(".")) {
     console.log(`stepId is ${stepId}`);
     console.log(`job name is "${job.name}"`);
     const jobMatch = job.name.match(job_regex);
-    if (!jobMatch || jobMatch.length === 0) {
+    if (!jobMatch) {
         console.log("job match fail");
         continue;
     }
@@ -8776,7 +8776,7 @@ if (body) {
         repo,
         issue_number: pull_request_number,
     });
-    const compareDate = (a, b) => a == b ? 0 : a < b ? -1 : 1;
+    const compareDate = (a, b) => a.getTime() - b.getTime();
     const post_comment = async () => {
         console.log("leaving comment");
         await octokit.rest.issues.createComment({
@@ -8787,7 +8787,7 @@ if (body) {
         });
     };
     const sorted_comments = comments
-        .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
+        .filter((comment) => comment.user?.login === "cppwarningnotifier[bot]")
         .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
     if (sorted_comments.length > 0) {
         const latest_comment = sorted_comments[sorted_comments.length - 1];

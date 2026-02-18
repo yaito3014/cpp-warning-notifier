@@ -47,14 +47,14 @@ interface Row {
   [field: string]: string;
 }
 
-let rows: Row[] = [];
+const rows: Row[] = [];
 
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
   const artifactMatch = file.match(artifact_regex);
 
-  if (artifactMatch === null || artifactMatch.length === 0) {
+  if (artifactMatch === null) {
     continue;
   }
 
@@ -96,7 +96,7 @@ for (const file of readdirRecursively(".")) {
 
   const jobMatch = job.name.match(job_regex);
 
-  if (!jobMatch || jobMatch.length === 0) {
+  if (!jobMatch) {
     console.log("job match fail");
     continue;
   }
@@ -225,7 +225,7 @@ if (body) {
     issue_number: pull_request_number,
   });
 
-  const compareDate = (a: Date, b: Date) => a == b ? 0 : a < b ? -1 : 1;
+  const compareDate = (a: Date, b: Date) => a.getTime() - b.getTime();
 
   const post_comment = async () => {
     console.log("leaving comment");
@@ -238,7 +238,7 @@ if (body) {
   };
 
   const sorted_comments = comments
-    .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
+    .filter((comment) => comment.user?.login === "cppwarningnotifier[bot]")
     .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
 
   if (sorted_comments.length > 0) {
