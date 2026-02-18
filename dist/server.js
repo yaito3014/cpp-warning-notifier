@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { Buffer } from 'node:buffer';
+import { Buffer as Buffer$1 } from 'node:buffer';
+import { createServer } from 'node:http';
 
 function getUserAgent() {
   if (typeof navigator === "object" && "userAgent" in navigator) {
@@ -1066,16 +1067,16 @@ var createTokenAuth = function createTokenAuth2(token) {
 
 const VERSION$c = "7.0.4";
 
-const noop$1 = () => {
+const noop$2 = () => {
 };
 const consoleWarn = console.warn.bind(console);
 const consoleError = console.error.bind(console);
 function createLogger$1(logger = {}) {
   if (typeof logger.debug !== "function") {
-    logger.debug = noop$1;
+    logger.debug = noop$2;
   }
   if (typeof logger.info !== "function") {
-    logger.info = noop$1;
+    logger.info = noop$2;
   }
   if (typeof logger.warn !== "function") {
     logger.warn = consoleWarn;
@@ -5439,7 +5440,7 @@ retry.VERSION = VERSION$9;
 var VERSION$8 = "0.0.0-development";
 
 // pkg/dist-src/wrap-request.js
-var noop = () => Promise.resolve();
+var noop$1 = () => Promise.resolve();
 function wrapRequest(state, request, options) {
   return state.retryLimiter.schedule(doRequest, state, request, options);
 }
@@ -5455,13 +5456,13 @@ async function doRequest(state, request, options) {
     jobOptions.expiration = 1e3 * 60;
   }
   if (isWrite || isGraphQL) {
-    await state.write.key(state.id).schedule(jobOptions, noop);
+    await state.write.key(state.id).schedule(jobOptions, noop$1);
   }
   if (isWrite && state.triggersNotification(pathname)) {
-    await state.notifications.key(state.id).schedule(jobOptions, noop);
+    await state.notifications.key(state.id).schedule(jobOptions, noop$1);
   }
   if (isSearch) {
-    await state.search.key(state.id).schedule(jobOptions, noop);
+    await state.search.key(state.id).schedule(jobOptions, noop$1);
   }
   const req = (isAuth ? state.auth : state.global).key(state.id).schedule(jobOptions, request, options);
   if (isGraphQL) {
@@ -7588,6 +7589,288 @@ async function deleteAuthorizationWithState(state, options) {
   return response;
 }
 
+// pkg/dist-src/middleware/unknown-route-response.js
+function unknownRouteResponse(request) {
+  return {
+    status: 404,
+    headers: { "content-type": "application/json" },
+    text: JSON.stringify({
+      error: `Unknown route: ${request.method} ${request.url}`
+    })
+  };
+}
+
+// pkg/dist-src/middleware/handle-request.js
+async function handleRequest(app, { pathPrefix = "/api/github/oauth" }, request) {
+  let { pathname } = new URL(request.url, "http://localhost");
+  if (!pathname.startsWith(`${pathPrefix}/`)) {
+    return void 0;
+  }
+  if (request.method === "OPTIONS") {
+    return {
+      status: 200,
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "*",
+        "access-control-allow-headers": "Content-Type, User-Agent, Authorization"
+      }
+    };
+  }
+  pathname = pathname.slice(pathPrefix.length + 1);
+  const route = [request.method, pathname].join(" ");
+  const routes = {
+    getLogin: `GET login`,
+    getCallback: `GET callback`,
+    createToken: `POST token`,
+    getToken: `GET token`,
+    patchToken: `PATCH token`,
+    patchRefreshToken: `PATCH refresh-token`,
+    scopeToken: `POST token/scoped`,
+    deleteToken: `DELETE token`,
+    deleteGrant: `DELETE grant`
+  };
+  if (!Object.values(routes).includes(route)) {
+    return unknownRouteResponse(request);
+  }
+  let json;
+  try {
+    const text = await request.text();
+    json = text ? JSON.parse(text) : {};
+  } catch (error) {
+    return {
+      status: 400,
+      headers: {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      },
+      text: JSON.stringify({
+        error: "[@octokit/oauth-app] request error"
+      })
+    };
+  }
+  const { searchParams } = new URL(request.url, "http://localhost");
+  const query = Object.fromEntries(searchParams);
+  const headers = request.headers;
+  try {
+    if (route === routes.getLogin) {
+      const authOptions = {};
+      if (query.state) {
+        Object.assign(authOptions, { state: query.state });
+      }
+      if (query.scopes) {
+        Object.assign(authOptions, { scopes: query.scopes.split(",") });
+      }
+      if (query.allowSignup) {
+        Object.assign(authOptions, {
+          allowSignup: query.allowSignup === "true"
+        });
+      }
+      if (query.redirectUrl) {
+        Object.assign(authOptions, { redirectUrl: query.redirectUrl });
+      }
+      const { url } = app.getWebFlowAuthorizationUrl(authOptions);
+      return { status: 302, headers: { location: url } };
+    }
+    if (route === routes.getCallback) {
+      if (query.error) {
+        throw new Error(
+          `[@octokit/oauth-app] ${query.error} ${query.error_description}`
+        );
+      }
+      if (!query.code) {
+        throw new Error('[@octokit/oauth-app] "code" parameter is required');
+      }
+      const {
+        authentication: { token: token2 }
+      } = await app.createToken({
+        code: query.code
+      });
+      return {
+        status: 200,
+        headers: {
+          "content-type": "text/html"
+        },
+        text: `<h1>Token created successfully</h1>
+
+<p>Your token is: <strong>${token2}</strong>. Copy it now as it cannot be shown again.</p>`
+      };
+    }
+    if (route === routes.createToken) {
+      const { code, redirectUrl } = json;
+      if (!code) {
+        throw new Error('[@octokit/oauth-app] "code" parameter is required');
+      }
+      const result = await app.createToken({
+        code,
+        redirectUrl
+      });
+      delete result.authentication.clientSecret;
+      return {
+        status: 201,
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*"
+        },
+        text: JSON.stringify(result)
+      };
+    }
+    if (route === routes.getToken) {
+      const token2 = headers.authorization?.substr("token ".length);
+      if (!token2) {
+        throw new Error(
+          '[@octokit/oauth-app] "Authorization" header is required'
+        );
+      }
+      const result = await app.checkToken({
+        token: token2
+      });
+      delete result.authentication.clientSecret;
+      return {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*"
+        },
+        text: JSON.stringify(result)
+      };
+    }
+    if (route === routes.patchToken) {
+      const token2 = headers.authorization?.substr("token ".length);
+      if (!token2) {
+        throw new Error(
+          '[@octokit/oauth-app] "Authorization" header is required'
+        );
+      }
+      const result = await app.resetToken({ token: token2 });
+      delete result.authentication.clientSecret;
+      return {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*"
+        },
+        text: JSON.stringify(result)
+      };
+    }
+    if (route === routes.patchRefreshToken) {
+      const token2 = headers.authorization?.substr("token ".length);
+      if (!token2) {
+        throw new Error(
+          '[@octokit/oauth-app] "Authorization" header is required'
+        );
+      }
+      const { refreshToken: refreshToken2 } = json;
+      if (!refreshToken2) {
+        throw new Error(
+          "[@octokit/oauth-app] refreshToken must be sent in request body"
+        );
+      }
+      const result = await app.refreshToken({ refreshToken: refreshToken2 });
+      delete result.authentication.clientSecret;
+      return {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*"
+        },
+        text: JSON.stringify(result)
+      };
+    }
+    if (route === routes.scopeToken) {
+      const token2 = headers.authorization?.substr("token ".length);
+      if (!token2) {
+        throw new Error(
+          '[@octokit/oauth-app] "Authorization" header is required'
+        );
+      }
+      const result = await app.scopeToken({
+        token: token2,
+        ...json
+      });
+      delete result.authentication.clientSecret;
+      return {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*"
+        },
+        text: JSON.stringify(result)
+      };
+    }
+    if (route === routes.deleteToken) {
+      const token2 = headers.authorization?.substr("token ".length);
+      if (!token2) {
+        throw new Error(
+          '[@octokit/oauth-app] "Authorization" header is required'
+        );
+      }
+      await app.deleteToken({
+        token: token2
+      });
+      return {
+        status: 204,
+        headers: { "access-control-allow-origin": "*" }
+      };
+    }
+    const token = headers.authorization?.substr("token ".length);
+    if (!token) {
+      throw new Error(
+        '[@octokit/oauth-app] "Authorization" header is required'
+      );
+    }
+    await app.deleteAuthorization({
+      token
+    });
+    return {
+      status: 204,
+      headers: { "access-control-allow-origin": "*" }
+    };
+  } catch (error) {
+    return {
+      status: 400,
+      headers: {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      },
+      text: JSON.stringify({ error: error.message })
+    };
+  }
+}
+
+// pkg/dist-src/middleware/node/parse-request.js
+function parseRequest(request) {
+  const { method, url, headers } = request;
+  async function text() {
+    const text2 = await new Promise((resolve, reject) => {
+      let bodyChunks = [];
+      request.on("error", reject).on("data", (chunk) => bodyChunks.push(chunk)).on("end", () => resolve(Buffer.concat(bodyChunks).toString()));
+    });
+    return text2;
+  }
+  return { method, url, headers, text };
+}
+
+// pkg/dist-src/middleware/node/send-response.js
+function sendResponse(octokitResponse, response) {
+  response.writeHead(octokitResponse.status, octokitResponse.headers);
+  response.end(octokitResponse.text);
+}
+
+// pkg/dist-src/middleware/node/index.js
+function createNodeMiddleware$2(app, options = {}) {
+  return async function(request, response, next) {
+    const octokitRequest = await parseRequest(request);
+    const octokitResponse = await handleRequest(app, options, octokitRequest);
+    if (octokitResponse) {
+      sendResponse(octokitResponse, response);
+      return true;
+    } else {
+      next?.();
+      return false;
+    }
+  };
+}
+
 // pkg/dist-src/index.js
 var OAuthApp = class {
   static VERSION = VERSION$3;
@@ -7702,8 +7985,8 @@ async function verify(secret, eventPayload, signature) {
       "[@octokit/webhooks-methods] eventPayload must be a string"
     );
   }
-  const signatureBuffer = Buffer.from(signature);
-  const verificationBuffer = Buffer.from(await sign(secret, eventPayload));
+  const signatureBuffer = Buffer$1.from(signature);
+  const verificationBuffer = Buffer$1.from(await sign(secret, eventPayload));
   if (signatureBuffer.length !== verificationBuffer.length) {
     return false;
   }
@@ -8267,9 +8550,247 @@ async function verifyAndReceive(state, event) {
   });
 }
 
+// pkg/dist-src/normalize-trailing-slashes.js
+function normalizeTrailingSlashes(path) {
+  let i = path.length;
+  if (i === 0) {
+    return "/";
+  }
+  while (i > 0) {
+    if (path.charCodeAt(--i) !== 47) {
+      break;
+    }
+  }
+  if (i === -1) {
+    return "/";
+  }
+  return path.slice(0, i + 1);
+}
+
+// pkg/dist-src/middleware/create-middleware.js
+var isApplicationJsonRE = /^\s*(application\/json)\s*(?:;|$)/u;
+var WEBHOOK_HEADERS = [
+  "x-github-event",
+  "x-hub-signature-256",
+  "x-github-delivery"
+];
+function createMiddleware(options) {
+  const { handleResponse: handleResponse3, getRequestHeader: getRequestHeader3, getPayload: getPayload3 } = options;
+  return function middleware(webhooks, options2) {
+    const middlewarePath = normalizeTrailingSlashes(options2.path);
+    return async function octokitWebhooksMiddleware(request, response, next) {
+      let pathname;
+      try {
+        pathname = new URL(
+          normalizeTrailingSlashes(request.url),
+          "http://localhost"
+        ).pathname;
+      } catch (error) {
+        return handleResponse3(
+          JSON.stringify({
+            error: `Request URL could not be parsed: ${request.url}`
+          }),
+          422,
+          {
+            "content-type": "application/json"
+          },
+          response
+        );
+      }
+      if (pathname !== middlewarePath) {
+        next?.();
+        return handleResponse3(null);
+      } else if (request.method !== "POST") {
+        return handleResponse3(
+          JSON.stringify({
+            error: `Unknown route: ${request.method} ${pathname}`
+          }),
+          404,
+          {
+            "content-type": "application/json"
+          },
+          response
+        );
+      }
+      const contentType = getRequestHeader3(request, "content-type");
+      if (typeof contentType !== "string" || !isApplicationJsonRE.test(contentType)) {
+        return handleResponse3(
+          JSON.stringify({
+            error: `Unsupported "Content-Type" header value. Must be "application/json"`
+          }),
+          415,
+          {
+            "content-type": "application/json",
+            accept: "application/json"
+          },
+          response
+        );
+      }
+      const missingHeaders = WEBHOOK_HEADERS.filter((header) => {
+        return getRequestHeader3(request, header) == void 0;
+      }).join(", ");
+      if (missingHeaders) {
+        return handleResponse3(
+          JSON.stringify({
+            error: `Required headers missing: ${missingHeaders}`
+          }),
+          400,
+          {
+            "content-type": "application/json",
+            accept: "application/json"
+          },
+          response
+        );
+      }
+      const eventName = getRequestHeader3(
+        request,
+        "x-github-event"
+      );
+      const signature = getRequestHeader3(request, "x-hub-signature-256");
+      const id = getRequestHeader3(request, "x-github-delivery");
+      options2.log.debug(`${eventName} event received (id: ${id})`);
+      let didTimeout = false;
+      let timeout;
+      const timeoutPromise = new Promise((resolve) => {
+        timeout = setTimeout(() => {
+          didTimeout = true;
+          resolve(
+            handleResponse3(
+              "still processing\n",
+              202,
+              {
+                "Content-Type": "text/plain",
+                accept: "application/json"
+              },
+              response
+            )
+          );
+        }, options2.timeout);
+      });
+      const processWebhook = async () => {
+        try {
+          const payload = await getPayload3(request);
+          await webhooks.verifyAndReceive({
+            id,
+            name: eventName,
+            payload,
+            signature
+          });
+          clearTimeout(timeout);
+          if (didTimeout) return handleResponse3(null);
+          return handleResponse3(
+            "ok\n",
+            200,
+            {
+              "content-type": "text/plain",
+              accept: "application/json"
+            },
+            response
+          );
+        } catch (error) {
+          clearTimeout(timeout);
+          if (didTimeout) return handleResponse3(null);
+          const err = Array.from(error.errors)[0];
+          const errorMessage = err.message ? `${err.name}: ${err.message}` : "Error: An Unspecified error occurred";
+          const statusCode = typeof err.status !== "undefined" ? err.status : 500;
+          options2.log.error(error);
+          return handleResponse3(
+            JSON.stringify({
+              error: errorMessage
+            }),
+            statusCode,
+            {
+              "content-type": "application/json",
+              accept: "application/json"
+            },
+            response
+          );
+        }
+      };
+      return await Promise.race([timeoutPromise, processWebhook()]);
+    };
+  };
+}
+
+// pkg/dist-src/middleware/node/handle-response.js
+function handleResponse(body, status = 200, headers = {}, response) {
+  if (body === null) {
+    return false;
+  }
+  headers["content-length"] = body.length.toString();
+  response.writeHead(status, headers).end(body);
+  return true;
+}
+
+// pkg/dist-src/middleware/node/get-request-header.js
+function getRequestHeader(request, key) {
+  return request.headers[key];
+}
+
+// pkg/dist-src/concat-uint8array.js
+function concatUint8Array(data) {
+  if (data.length === 0) {
+    return new Uint8Array(0);
+  }
+  let totalLength = 0;
+  for (let i = 0; i < data.length; i++) {
+    totalLength += data[i].length;
+  }
+  if (totalLength === 0) {
+    return new Uint8Array(0);
+  }
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (let i = 0; i < data.length; i++) {
+    result.set(data[i], offset);
+    offset += data[i].length;
+  }
+  return result;
+}
+
 // pkg/dist-src/middleware/node/get-payload.js
 var textDecoder = new TextDecoder("utf-8", { fatal: false });
-textDecoder.decode.bind(textDecoder);
+var decode = textDecoder.decode.bind(textDecoder);
+async function getPayload(request) {
+  if (typeof request.body === "object" && "rawBody" in request && request.rawBody instanceof Uint8Array) {
+    return decode(request.rawBody);
+  } else if (typeof request.body === "string") {
+    return request.body;
+  }
+  const payload = await getPayloadFromRequestStream(request);
+  return decode(payload);
+}
+function getPayloadFromRequestStream(request) {
+  return new Promise((resolve, reject) => {
+    let data = [];
+    request.on(
+      "error",
+      (error) => reject(new AggregateError([error], error.message))
+    );
+    request.on("data", data.push.bind(data));
+    request.on("end", () => {
+      const result = concatUint8Array(data);
+      queueMicrotask(() => resolve(result));
+    });
+  });
+}
+
+// pkg/dist-src/middleware/node/index.js
+function createNodeMiddleware$1(webhooks, {
+  path = "/api/github/webhooks",
+  log = createLogger(),
+  timeout = 9e3
+} = {}) {
+  return createMiddleware({
+    handleResponse,
+    getRequestHeader,
+    getPayload
+  })(webhooks, {
+    path,
+    log,
+    timeout
+  });
+}
 
 // pkg/dist-src/index.js
 var Webhooks = class {
@@ -8475,6 +8996,51 @@ async function getInstallationUrlBase(app) {
   }
   return `${appInfo.html_url}/installations/new`;
 }
+function noop() {
+}
+function createNodeMiddleware(app, options = {}) {
+  const log = Object.assign(
+    {
+      debug: noop,
+      info: noop,
+      warn: console.warn.bind(console),
+      error: console.error.bind(console)
+    },
+    options.log
+  );
+  const optionsWithDefaults = {
+    pathPrefix: "/api/github",
+    ...options};
+  const webhooksMiddleware = createNodeMiddleware$1(app.webhooks, {
+    path: optionsWithDefaults.pathPrefix + "/webhooks",
+    log
+  });
+  const oauthMiddleware = createNodeMiddleware$2(app.oauth, {
+    pathPrefix: optionsWithDefaults.pathPrefix + "/oauth"
+  });
+  return middleware$1.bind(
+    null,
+    optionsWithDefaults.pathPrefix,
+    webhooksMiddleware,
+    oauthMiddleware
+  );
+}
+async function middleware$1(pathPrefix, webhooksMiddleware, oauthMiddleware, request, response, next) {
+  const { pathname } = new URL(request.url, "http://localhost");
+  if (pathname.startsWith(`${pathPrefix}/`)) {
+    if (pathname === `${pathPrefix}/webhooks`) {
+      webhooksMiddleware(request, response);
+    } else if (pathname.startsWith(`${pathPrefix}/oauth/`)) {
+      oauthMiddleware(request, response);
+    } else {
+      sendResponse(unknownRouteResponse(request), response);
+    }
+    return true;
+  } else {
+    next?.();
+    return false;
+  }
+}
 
 // pkg/dist-src/index.js
 var App$1 = class App {
@@ -8625,8 +9191,6 @@ async function collect_rows(octokit, owner, repo, run_id, config, exclude_job_id
     });
     for (const job of job_list.jobs) {
         const job_id = job.id;
-        if (exclude_job_id !== undefined && job_id === exclude_job_id)
-            continue;
         const { url: redirect_url } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
             owner,
             repo,
@@ -8782,38 +9346,69 @@ async function post_or_update_comment(octokit, owner, repo, pull_request_number,
     }
 }
 
-if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
-    console.log("not a pull request, exiting.");
-    process.exit(0);
-}
 function require_env(name) {
     const value = process.env[name];
     if (!value)
         throw new Error(`Missing required environment variable: ${name}`);
     return value;
 }
-const github_repository = require_env("GITHUB_REPOSITORY");
-const github_ref = require_env("GITHUB_REF");
-const current_run_id = parseInt(require_env("INPUT_RUN_ID"));
-const current_job_id = parseInt(require_env("INPUT_JOB_ID"));
-const [owner, repo] = github_repository.split("/");
-const pull_request_number = parseInt(github_ref.split("/")[2]);
-const config = {
-    job_regex: require_env("INPUT_JOB_REGEX"),
-    step_regex: require_env("INPUT_STEP_REGEX"),
-    row_headers: JSON.parse(require_env("INPUT_ROW_HEADERS")),
-    column_header: require_env("INPUT_COLUMN_HEADER"),
-    ignore_no_marker: require_env("INPUT_IGNORE_NO_MARKER") === "true",
-};
-const app_id = 1230093;
-const private_key = require_env("APP_PRIVATE_KEY");
-const app = new App({ appId: app_id, privateKey: private_key });
-const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
-const octokit = await app.getInstallationOctokit(installation.id);
-const rows = await collect_rows(octokit, owner, repo, current_run_id, config, current_job_id);
-const body = generate_table(rows, config);
-console.log("body is", body);
-if (body) {
-    await post_or_update_comment(octokit, owner, repo, pull_request_number, body, "cppwarningnotifier[bot]");
+const app = new App({
+    appId: require_env("APP_ID"),
+    privateKey: require_env("APP_PRIVATE_KEY"),
+    webhooks: { secret: require_env("WEBHOOK_SECRET") },
+});
+async function read_repo_config(octokit, owner, repo) {
+    try {
+        const { data } = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: ".github/cpp-warning-notifier.json",
+        });
+        if (!("content" in data))
+            return null;
+        const json = JSON.parse(Buffer.from(data.content, "base64").toString());
+        return {
+            job_regex: json.job_regex,
+            step_regex: json.step_regex,
+            row_headers: json.row_headers,
+            column_header: json.column_header,
+            ignore_no_marker: json.ignore_no_marker ?? false,
+        };
+    }
+    catch {
+        return null;
+    }
 }
-//# sourceMappingURL=index.js.map
+app.webhooks.on("workflow_run.completed", async ({ octokit, payload }) => {
+    const { repository, workflow_run } = payload;
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const run_id = workflow_run.id;
+    const pull_requests = workflow_run.pull_requests;
+    if (pull_requests.length === 0) {
+        console.log(`run ${run_id}: no associated pull requests, skipping`);
+        return;
+    }
+    const config = await read_repo_config(octokit, owner, repo);
+    if (!config) {
+        console.log(`${owner}/${repo}: no .github/cpp-warning-notifier.json, skipping`);
+        return;
+    }
+    for (const pr of pull_requests) {
+        console.log(`processing run ${run_id} for PR #${pr.number} in ${owner}/${repo}`);
+        const rows = await collect_rows(octokit, owner, repo, run_id, config);
+        const body = generate_table(rows, config);
+        console.log("body is", body);
+        if (body) {
+            const { data: app_info } = await octokit.rest.apps.getAuthenticated();
+            const bot_login = `${app_info.slug}[bot]`;
+            await post_or_update_comment(octokit, owner, repo, pr.number, body, bot_login);
+        }
+    }
+});
+const port = parseInt(process.env.PORT ?? "3000");
+const middleware = createNodeMiddleware(app);
+createServer(middleware).listen(port, () => {
+    console.log(`webhook server listening on port ${port}`);
+});
+//# sourceMappingURL=server.js.map

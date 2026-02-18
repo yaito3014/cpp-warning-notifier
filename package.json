@@ -3,7 +3,8 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript"
+    "build": "npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "octokit": "^5.0.3"
