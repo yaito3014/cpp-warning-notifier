@@ -56,8 +56,7 @@ for (const job of jobList.jobs) {
   });
 
   const response = await fetch(redirectUrl);
-  const result = await response.body?.getReader().read();
-  const jobLog = result?.value as string;
+  const jobLog = await response.text();
 
   const warningRegex = /warning( .\d+)?:/;
   const errorRegex = /error( .\d+)?:/;
