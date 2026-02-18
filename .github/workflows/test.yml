@@ -40,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: CppWarningNotifier
+    env:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./
