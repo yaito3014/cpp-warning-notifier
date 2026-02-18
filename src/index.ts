@@ -1,4 +1,4 @@
-import { App } from "octokit";
+import { App, Octokit } from "octokit";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
@@ -26,11 +26,37 @@ const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 
 const appId = 1230093;
-const privateKey = requireEnv("INPUT_PRIVATE_KEY");
+const workerUrl = process.env.INPUT_WORKER_URL;
+const privateKey = process.env.INPUT_PRIVATE_KEY;
 
-const app = new App({ appId, privateKey });
-const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
-const octokit = await app.getInstallationOctokit(installation.id);
+// ── Authentication ──────────────────────────────────────────────────────────
+// Option A: WORKER_URL — exchange a GitHub OIDC token for an installation token
+//           via the Cloudflare Worker. Requires id-token: write on the job.
+// Option B: PRIVATE_KEY — authenticate directly as the GitHub App (legacy).
+
+let octokit: Octokit;
+
+if (workerUrl) {
+  console.log("Using Cloudflare Worker for authentication.");
+  const installationToken = await getInstallationTokenFromWorker(workerUrl);
+  octokit = new Octokit({ auth: installationToken });
+} else if (privateKey) {
+  console.log("Using GitHub App private key for authentication.");
+  const app = new App({ appId, privateKey });
+  const { data: installation } = await app.octokit.request(
+    "GET /repos/{owner}/{repo}/installation",
+    { owner, repo },
+  );
+  octokit = await app.getInstallationOctokit(installation.id);
+} else {
+  throw new Error(
+    "Either INPUT_WORKER_URL or INPUT_PRIVATE_KEY must be provided. " +
+      "Set WORKER_URL to use the Cloudflare Worker backend (recommended), " +
+      "or PRIVATE_KEY to use the GitHub App private key directly.",
+  );
+}
+
+// ── Job log processing ──────────────────────────────────────────────────────
 
 let body: string | null = null;
 
@@ -279,4 +305,56 @@ if (body) {
   } else {
     await post_comment();
   }
+}
+
+// ── Worker authentication helper ────────────────────────────────────────────
+
+/**
+ * Request a GitHub Actions OIDC token and exchange it for a GitHub App
+ * installation access token via the Cloudflare Worker.
+ *
+ * Requires the job to have:
+ *   permissions:
+ *     id-token: write
+ */
+async function getInstallationTokenFromWorker(workerUrl: string): Promise<string> {
+  const tokenRequestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+  const tokenRequestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+
+  if (!tokenRequestUrl || !tokenRequestToken) {
+    throw new Error(
+      "ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are not set. " +
+        "Ensure the job has 'permissions: id-token: write'.",
+    );
+  }
+
+  // Request the OIDC token with the worker URL as the audience so the worker
+  // can verify the token was intended for it.
+  const oidcRequestUrl = `${tokenRequestUrl}&audience=${encodeURIComponent(workerUrl)}`;
+  const oidcResponse = await fetch(oidcRequestUrl, {
+    headers: { Authorization: `bearer ${tokenRequestToken}` },
+  });
+
+  if (!oidcResponse.ok) {
+    const text = await oidcResponse.text();
+    throw new Error(`Failed to obtain GitHub OIDC token (${oidcResponse.status}): ${text}`);
+  }
+
+  const { value: oidcToken } = (await oidcResponse.json()) as { value: string };
+
+  // Exchange the OIDC token for a GitHub App installation access token.
+  const tokenResponse = await fetch(`${workerUrl}/token`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${oidcToken}` },
+  });
+
+  if (!tokenResponse.ok) {
+    const err = (await tokenResponse.json()) as { error?: string };
+    throw new Error(
+      `Worker token exchange failed (${tokenResponse.status}): ${err.error ?? "unknown error"}`,
+    );
+  }
+
+  const { token } = (await tokenResponse.json()) as { token: string };
+  return token;
 }

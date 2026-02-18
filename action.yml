@@ -6,11 +6,16 @@ inputs:
   IGNORE_NO_MARKER:
     default: false
   RUN_ID:
-    requird: true
+    required: true
   JOB_ID:
     required: true
+  # Option A: provide the GitHub App private key directly (self-hosted App usage)
   PRIVATE_KEY:
-    required: true
+    required: false
+  # Option B: provide the Cloudflare Worker URL to exchange a GitHub OIDC token
+  # for an installation access token (requires id-token: write permission on the job)
+  WORKER_URL:
+    required: false
   JOB_REGEX:
     required: true
   STEP_REGEX:
