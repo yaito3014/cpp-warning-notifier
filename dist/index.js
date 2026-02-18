@@ -8660,18 +8660,27 @@ for (const file of readdirRecursively(".")) {
     let compileResult = "✅success";
     let firstIssueLine = 1;
     const lines = compilationOutput.split("\n");
+    console.log(`total lines: ${lines.length}`);
     const warningIdx = lines.findIndex((line) => line.match(warningRegex));
+    console.log(`warningIdx: ${warningIdx}`);
     if (warningIdx !== -1) {
         compileResult = "⚠️warning";
         firstIssueLine = warningIdx + 1;
+        console.log(`matched warning line: ${lines[warningIdx]}`);
     }
     else {
         const errorIdx = lines.findIndex((line) => line.match(errorRegex));
+        console.log(`errorIdx: ${errorIdx}`);
         if (errorIdx !== -1) {
             compileResult = "❌error";
             firstIssueLine = errorIdx + 1;
+            console.log(`matched error line: ${lines[errorIdx]}`);
         }
     }
+    // GitHub Actions step logs have a few preamble lines before the actual output
+    const GITHUB_ACTIONS_LOG_OFFSET = 3;
+    firstIssueLine += GITHUB_ACTIONS_LOG_OFFSET;
+    console.log(`compileResult: ${compileResult}, firstIssueLine: ${firstIssueLine} (includes offset ${GITHUB_ACTIONS_LOG_OFFSET})`);
     const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
         owner,
         repo,
