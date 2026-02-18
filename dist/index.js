@@ -8626,7 +8626,7 @@ const ignore_no_marker = requireEnv("INPUT_IGNORE_NO_MARKER") === 'true';
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 const appId = 1230093;
-const privateKey = requireEnv("INPUT_PRIVATE_KEY");
+const privateKey = requireEnv("APP_PRIVATE_KEY");
 const app = new App({ appId, privateKey });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installation.id);
