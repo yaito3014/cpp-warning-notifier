@@ -38,13 +38,15 @@ jobs:
     needs:
       - compile
     runs-on: ubuntu-latest
-    environment:
-      name: CppWarningNotifier
+    permissions:
+      id-token: write
+      pull-requests: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
       - uses: ./
         with:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          WORKER_URL: https://cpp-warning-notifier.ykakeyama3014.workers.dev
           RUN_ID: ${{ github.run_id }}
           JOB_ID: ${{ job.check_run_id }}
           STEP_REGEX: build-.*
