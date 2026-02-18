@@ -112,8 +112,16 @@ console.log("rows", rows);
 const ROW_HEADER_FIELDS: string[] = JSON.parse(requireEnv("INPUT_ROW_HEADERS"));
 const COLUMN_FIELD = requireEnv("INPUT_COLUMN_HEADER");
 
-function generateRowKey(row: Row): string {
-  return JSON.stringify(ROW_HEADER_FIELDS.map((f) => row[f]));
+class CompositeKeyMap<V> {
+  private map = new Map<string, V>();
+
+  get(keys: readonly string[]): V | undefined {
+    return this.map.get(JSON.stringify(keys));
+  }
+
+  set(keys: readonly string[], value: V): void {
+    this.map.set(JSON.stringify(keys), value);
+  }
 }
 
 function escapeHtml(s: string): string {
@@ -128,14 +136,13 @@ function renderRows(
   rows: Row[],
   depth: number,
   columns: string[],
-  cellMap: Map<string, Map<string, Row>>,
+  cellMap: CompositeKeyMap<Row>,
 ): string[] {
   if (depth === ROW_HEADER_FIELDS.length) {
     const representative = rows[0];
-    const rowKey = generateRowKey(representative);
-    const colMap = cellMap.get(rowKey);
+    const rowFields = ROW_HEADER_FIELDS.map((f) => representative[f]);
     const tds = columns.map((col) => {
-      const cell = colMap?.get(col);
+      const cell = cellMap.get([...rowFields, col]);
       if (!cell) return "<td></td>";
       return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
     });
@@ -190,15 +197,10 @@ function generateTable(entries: Row[]): string {
     return 0;
   });
 
-  const cellMap = new Map<string, Map<string, Row>>();
+  const cellMap = new CompositeKeyMap<Row>();
   for (const entry of sorted) {
-    const rowKey = generateRowKey(entry);
-    let colMap = cellMap.get(rowKey);
-    if (!colMap) {
-      colMap = new Map();
-      cellMap.set(rowKey, colMap);
-    }
-    colMap.set(entry[COLUMN_FIELD], entry);
+    const key = [...ROW_HEADER_FIELDS.map((f) => entry[f]), entry[COLUMN_FIELD]];
+    cellMap.set(key, entry);
   }
 
   const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
