@@ -1,4 +1,3 @@
-import { readFileSync, readdirSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
@@ -8619,9 +8618,10 @@ function requireEnv(name) {
 }
 const githubRepository = requireEnv("GITHUB_REPOSITORY");
 const githubRef = requireEnv("GITHUB_REF");
+const current_run_id = parseInt(requireEnv("INPUT_RUN_ID"));
+const current_job_id = parseInt(requireEnv("INPUT_JOB_ID"));
 const [owner, repo] = githubRepository.split("/");
 const pull_request_number = parseInt(githubRef.split("/")[2]);
-const artifact_regex = requireEnv("INPUT_ARTIFACT_REGEX");
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 const appId = 1230093;
@@ -8630,43 +8630,53 @@ const app = new App({ appId, privateKey });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installation.id);
 let body = null;
-const readdirRecursively = (dir) => {
-    const files = [];
-    for (const dirent of readdirSync(dir, { withFileTypes: true })) {
-        const path = `${dir}/${dirent.name}`;
-        if (dirent.isDirectory())
-            files.push(...readdirRecursively(path));
-        else if (dirent.isFile())
-            files.push(path);
-    }
-    return files;
-};
 const rows = [];
-for (const file of readdirRecursively(".")) {
-    console.log("looking", file, "deciding whether skip or not...");
-    const artifactMatch = file.match(artifact_regex);
-    if (artifactMatch === null) {
+const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
+    owner,
+    repo,
+    run_id: current_run_id,
+});
+for (const job of jobList.jobs) {
+    const job_id = job.id;
+    if (job_id === current_job_id)
         continue;
-    }
-    if (!artifactMatch.groups?.runId || !artifactMatch.groups?.jobId) {
-        console.log("artifact regex matched but missing runId/jobId named groups, skipping", file);
-        continue;
-    }
-    const { runId, jobId } = artifactMatch.groups;
-    console.log("found", file, "detecting warnings...");
-    const compilationOutput = readFileSync(file).toString();
-    let compileResult = "✅success";
-    if (compilationOutput.match(/warning( .\d+)?:/)) {
-        compileResult = "⚠️warning";
-    }
-    else if (compilationOutput.match(/error( .\d+)?:/)) {
-        compileResult = "❌error";
-    }
-    const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
+    const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
         owner,
         repo,
-        job_id: parseInt(jobId),
+        job_id,
     });
+    const response = await fetch(redirectUrl);
+    if (!response.ok) {
+        console.log(`failed to retrieve job log for ${job_id}`);
+        continue;
+    }
+    const jobLog = await response.text();
+    const warningRegex = /warning( .\d+)?:/;
+    const errorRegex = /error( .\d+)?:/;
+    const lines = jobLog.split("\n");
+    console.log(`total lines: ${lines.length}`);
+    let offset = 0;
+    const offsetIdx = lines.findIndex((line) => line.match("CPPWARNINGNOTIFIER_LOG_MARKER"));
+    if (offsetIdx !== -1)
+        offset = offsetIdx;
+    let compileResult = "✅success";
+    let firstIssueLine = 1;
+    const warningIdx = lines.findIndex((line) => line.match(warningRegex));
+    console.log(`warningIdx: ${warningIdx}`);
+    if (warningIdx !== -1) {
+        compileResult = "⚠️warning";
+        firstIssueLine = warningIdx - offset + 1;
+        console.log(`matched warning line: ${lines[warningIdx]}`);
+    }
+    else {
+        const errorIdx = lines.findIndex((line) => line.match(errorRegex));
+        console.log(`errorIdx: ${errorIdx}`);
+        if (errorIdx !== -1) {
+            compileResult = "❌error";
+            firstIssueLine = errorIdx - offset + 1;
+            console.log(`matched error line: ${lines[errorIdx]}`);
+        }
+    }
     const steps = job.steps ?? [];
     const stepIndex = steps.findIndex((step) => step.name.match(step_regex) &&
         step.status === "completed" &&
@@ -8680,7 +8690,7 @@ for (const file of readdirRecursively(".")) {
         continue;
     }
     rows.push({
-        url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+        url: `https://github.com/${owner}/${repo}/actions/runs/${current_run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
         status: compileResult,
         ...jobMatch.groups,
     });

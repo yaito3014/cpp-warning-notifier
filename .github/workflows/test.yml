@@ -30,12 +30,9 @@ jobs:
       - name: configure
         run: cmake -S. -Bbuild
       - name: build-${{ matrix.os.name }}
-        run: cmake --build build >> compilation.log 2>&1
-      - uses: actions/upload-artifact@v6
-        with:
-          name: compilation_${{ github.run_id }}_${{ job.check_run_id }}_log
-          path: compilation*.log
-      - run: ./build/hello_world
+        run: |
+          echo "CPPWARNINGNOTIFIER_LOG_MARKER"
+          cmake --build build
 
   run-notifier:
     needs:
@@ -45,12 +42,11 @@ jobs:
       name: CppWarningNotifier
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
       - uses: ./
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          ARTIFACT_REGEX: compilation_(?<runId>\d+)_(?<jobId>\d+)_log
+          RUN_ID: ${{ github.run_id }}
+          JOB_ID: ${{ job.check_run_id }}
           STEP_REGEX: build-.*
           JOB_REGEX: compile \((?<osName>.+?), (?<osVersion>.+?), (?<config>.+?), (?<cppVersion>.+?), (?<vendorName>.+?), (?<vendorVersion>.+?)\)
           ROW_HEADERS: '["osName","osVersion","vendorName","vendorVersion","config"]'
