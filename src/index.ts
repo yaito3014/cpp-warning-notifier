@@ -1,4 +1,5 @@
-import { Octokit } from "octokit";
+import { Octokit } from "@octokit/rest";
+import { graphql } from "@octokit/graphql";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
@@ -14,16 +15,16 @@ function requireEnv(name: string): string {
 const githubRepository = requireEnv("GITHUB_REPOSITORY");
 const githubRef = requireEnv("GITHUB_REF");
 
-const current_run_id = parseInt(requireEnv("INPUT_RUN_ID"));
-const current_job_id = parseInt(requireEnv("INPUT_JOB_ID"));
+const runId = parseInt(requireEnv("INPUT_RUN_ID"));
+const jobId = parseInt(requireEnv("INPUT_JOB_ID"));
 
 const [owner, repo] = githubRepository.split("/");
-const pull_request_number = parseInt(githubRef.split("/")[2]);
+const pullRequestNumber = parseInt(githubRef.split("/")[2]);
 
-const ignore_no_marker = requireEnv("INPUT_IGNORE_NO_MARKER") === 'true';
+const ignoreNoMarker = requireEnv("INPUT_IGNORE_NO_MARKER") === "true";
 
-const job_regex = requireEnv("INPUT_JOB_REGEX");
-const step_regex = requireEnv("INPUT_STEP_REGEX");
+const jobRegex = requireEnv("INPUT_JOB_REGEX");
+const stepRegex = requireEnv("INPUT_STEP_REGEX");
 
 const workerUrl = requireEnv("INPUT_WORKER_URL");
 
@@ -33,10 +34,9 @@ const workerUrl = requireEnv("INPUT_WORKER_URL");
 
 const installationToken = await getInstallationTokenFromWorker(workerUrl);
 const octokit = new Octokit({ auth: installationToken });
+const gql = graphql.defaults({ headers: { authorization: `token ${installationToken}` } });
 
 // ── Job log processing ──────────────────────────────────────────────────────
-
-let body: string | null = null;
 
 interface Row {
   url: string;
@@ -44,35 +44,33 @@ interface Row {
   [field: string]: string;
 }
 
+const warningRegex = /warning( .\d+)?:/;
+const errorRegex = /error( .\d+)?:/;
+
 const rows: Row[] = [];
 
-const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
+const { data: jobList } = await octokit.actions.listJobsForWorkflowRun({
   owner,
   repo,
-  run_id: current_run_id,
+  run_id: runId,
   per_page: 100,
 });
 
 for (const job of jobList.jobs) {
-  const job_id = job.id;
+  if (job.id === jobId) continue;
 
-  if (job_id === current_job_id) continue;
-
-  const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+  const { url: redirectUrl } = await octokit.actions.downloadJobLogsForWorkflowRun({
     owner,
     repo,
-    job_id,
+    job_id: job.id,
   });
 
   const response = await fetch(redirectUrl);
   if (!response.ok) {
-    console.log(`failed to retrieve job log for ${job_id}`);
+    console.log(`failed to retrieve job log for ${job.id}`);
     continue;
   }
   const jobLog = await response.text();
-
-  const warningRegex = /warning( .\d+)?:/;
-  const errorRegex = /error( .\d+)?:/;
 
   const lines = jobLog.split("\n");
   console.log(`total lines: ${lines.length}`);
@@ -82,7 +80,7 @@ for (const job of jobList.jobs) {
   if (offsetIdx !== -1) {
     offset = offsetIdx;
   } else {
-    if (ignore_no_marker) {
+    if (ignoreNoMarker) {
       continue;
     }
   }
@@ -108,17 +106,16 @@ for (const job of jobList.jobs) {
   const steps = job.steps ?? [];
   const stepIndex = steps.findIndex(
     (step) =>
-      step.name.match(step_regex) &&
+      step.name.match(stepRegex) &&
       step.status === "completed" &&
       step.conclusion === "success",
   );
   const stepId = (stepIndex === -1 ? steps.length : stepIndex) + 1;
 
   console.log(`stepId is ${stepId}`);
-
   console.log(`job name is "${job.name}"`);
 
-  const jobMatch = job.name.match(job_regex);
+  const jobMatch = job.name.match(jobRegex);
 
   if (!jobMatch) {
     console.log("job match fail");
@@ -126,7 +123,7 @@ for (const job of jobList.jobs) {
   }
 
   rows.push({
-    url: `https://github.com/${owner}/${repo}/actions/runs/${current_run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
+    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${job.id}#step:${stepId}:${firstIssueLine}`,
     status: compileResult,
     ...jobMatch.groups,
   });
@@ -134,20 +131,8 @@ for (const job of jobList.jobs) {
 
 console.log("rows", rows);
 
-const ROW_HEADER_FIELDS: string[] = JSON.parse(requireEnv("INPUT_ROW_HEADERS"));
-const COLUMN_FIELD = requireEnv("INPUT_COLUMN_HEADER");
-
-class CompositeKeyMap<V> {
-  private map = new Map<string, V>();
-
-  get(keys: readonly string[]): V | undefined {
-    return this.map.get(JSON.stringify(keys));
-  }
-
-  set(keys: readonly string[], value: V): void {
-    this.map.set(JSON.stringify(keys), value);
-  }
-}
+const rowHeaderFields: string[] = JSON.parse(requireEnv("INPUT_ROW_HEADERS"));
+const columnField = requireEnv("INPUT_COLUMN_HEADER");
 
 function escapeHtml(s: string): string {
   return s
@@ -161,21 +146,21 @@ function renderRows(
   rows: Row[],
   depth: number,
   columns: string[],
-  cellMap: CompositeKeyMap<Row>,
+  cellMap: Map<string, Row>,
 ): string[] {
-  if (depth === ROW_HEADER_FIELDS.length) {
+  if (depth === rowHeaderFields.length) {
     const representative = rows[0];
-    const rowFields = ROW_HEADER_FIELDS.map((f) => representative[f]);
+    const rowFields = rowHeaderFields.map((f) => representative[f]);
     const tds = columns.map((col) => {
-      const cell = cellMap.get([...rowFields, col]);
+      const cell = cellMap.get(JSON.stringify([...rowFields, col]));
       if (!cell) return "<td></td>";
       return `<td><a href="${escapeHtml(cell.url)}">${escapeHtml(cell.status)}</a></td>`;
     });
     return [`${tds.join("")}</tr>`];
   }
 
-  const field = ROW_HEADER_FIELDS[depth];
-  const groups = groupBy(rows, (r) => r[field] ?? "");
+  const field = rowHeaderFields[depth];
+  const groups = Map.groupBy(rows, (r) => r[field] ?? "");
   const result: string[] = [];
 
   for (const [value, group] of groups) {
@@ -193,27 +178,13 @@ function renderRows(
   return result;
 }
 
-function groupBy<T>(items: T[], keyFn: (item: T) => string): [string, T[]][] {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const key = keyFn(item);
-    let group = map.get(key);
-    if (!group) {
-      group = [];
-      map.set(key, group);
-    }
-    group.push(item);
-  }
-  return [...map.entries()];
-}
-
 function generateTable(entries: Row[]): string {
-  const columns = [...new Set(entries.map((e) => e[COLUMN_FIELD] ?? ""))].sort(
+  const columns = [...new Set(entries.map((e) => e[columnField] ?? ""))].sort(
     (a, b) => Number(a) - Number(b),
   );
 
   const sorted = [...entries].sort((a, b) => {
-    for (const field of ROW_HEADER_FIELDS) {
+    for (const field of rowHeaderFields) {
       const av = a[field] ?? "";
       const bv = b[field] ?? "";
       if (av < bv) return -1;
@@ -222,14 +193,14 @@ function generateTable(entries: Row[]): string {
     return 0;
   });
 
-  const cellMap = new CompositeKeyMap<Row>();
+  const cellMap = new Map<string, Row>();
   for (const entry of sorted) {
-    const key = [...ROW_HEADER_FIELDS.map((f) => entry[f]), entry[COLUMN_FIELD]];
+    const key = JSON.stringify([...rowHeaderFields.map((f) => entry[f]), entry[columnField]]);
     cellMap.set(key, entry);
   }
 
   const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
-  const thead = `<thead><tr><th colspan="${ROW_HEADER_FIELDS.length}">Environment</th>${theadCols}</tr></thead>`;
+  const thead = `<thead><tr><th colspan="${rowHeaderFields.length}">Environment</th>${theadCols}</tr></thead>`;
 
   const rows = renderRows(sorted, 0, columns, cellMap);
   const tbody = `<tbody>${rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
@@ -237,64 +208,54 @@ function generateTable(entries: Row[]): string {
   return `<table>${thead}${tbody}</table>`;
 }
 
-body ??= generateTable(rows);
+const body = generateTable(rows);
 
 console.log("body is", body);
 
 if (body) {
   console.log("outdates previous comments");
-  const { data: comments } = await octokit.rest.issues.listComments({
+  const { data: comments } = await octokit.issues.listComments({
     owner,
     repo,
-    issue_number: pull_request_number,
+    issue_number: pullRequestNumber,
   });
 
-  const compareDate = (a: Date, b: Date) => a.getTime() - b.getTime();
-
-  const post_comment = async () => {
+  const postComment = async () => {
     console.log("leaving comment");
-    await octokit.rest.issues.createComment({
+    await octokit.issues.createComment({
       owner,
       repo,
-      issue_number: pull_request_number,
+      issue_number: pullRequestNumber,
       body,
     });
   };
 
-  const sorted_comments = comments
+  const sortedComments = comments
     .filter((comment) => comment.user?.login === "cppwarningnotifier[bot]")
-    .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
+    .toSorted((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-  if (sorted_comments.length > 0) {
-    const latest_comment = sorted_comments[sorted_comments.length - 1];
+  if (sortedComments.length > 0) {
+    const latestComment = sortedComments[sortedComments.length - 1];
 
-    if (body.includes("warning") || latest_comment.body?.includes("warning")) {
-      // minimize latest comment
-      await octokit.graphql(`
-        mutation {
-          minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
+    if (body.includes("warning") || latestComment.body?.includes("warning")) {
+      await gql(
+        `mutation MinimizeComment($id: ID!) {
+          minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
             clientMutationId
           }
-        }
-      `);
+        }`,
+        { id: latestComment.node_id },
+      );
 
-      await post_comment();
+      await postComment();
     }
   } else {
-    await post_comment();
+    await postComment();
   }
 }
 
 // ── Worker authentication helper ────────────────────────────────────────────
 
-/**
- * Request a GitHub Actions OIDC token and exchange it for a GitHub App
- * installation access token via the Cloudflare Worker.
- *
- * Requires the job to have:
- *   permissions:
- *     id-token: write
- */
 async function getInstallationTokenFromWorker(workerUrl: string): Promise<string> {
   const tokenRequestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
   const tokenRequestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;

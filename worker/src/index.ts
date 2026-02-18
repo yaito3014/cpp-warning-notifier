@@ -54,21 +54,12 @@ async function handleTokenRequest(request: Request, env: Env): Promise<Response>
   const workerOrigin = new URL(request.url).origin;
 
   let repository: string;
-  let runnerEnvironment: string | undefined;
   try {
     const payload = await verifyGitHubOIDCToken(oidcToken, workerOrigin);
     repository = payload["repository"] as string;
-    runnerEnvironment = payload["runner_environment"] as string | undefined;
 
     if (typeof repository !== "string" || !repository.includes("/")) {
       return jsonError("OIDC token missing or invalid 'repository' claim", 401);
-    }
-
-    // Only accept tokens from GitHub-hosted or self-hosted runners
-    // (not github-hosted-hosted or other unusual values)
-    if (runnerEnvironment !== undefined && runnerEnvironment !== "github-hosted" &&
-        runnerEnvironment !== "self-hosted") {
-      console.warn(`Unusual runner_environment: ${runnerEnvironment}`);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
