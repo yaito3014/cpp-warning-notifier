@@ -8655,12 +8655,22 @@ for (const file of readdirRecursively(".")) {
     const { runId, jobId } = artifactMatch.groups;
     console.log("found", file, "detecting warnings...");
     const compilationOutput = readFileSync(file).toString();
+    const warningRegex = /warning( .\d+)?:/;
+    const errorRegex = /error( .\d+)?:/;
     let compileResult = "✅success";
-    if (compilationOutput.match(/warning( .\d+)?:/)) {
+    let firstIssueLine = 1;
+    const lines = compilationOutput.split("\n");
+    const warningIdx = lines.findIndex((line) => line.match(warningRegex));
+    if (warningIdx !== -1) {
         compileResult = "⚠️warning";
+        firstIssueLine = warningIdx + 1;
     }
-    else if (compilationOutput.match(/error( .\d+)?:/)) {
-        compileResult = "❌error";
+    else {
+        const errorIdx = lines.findIndex((line) => line.match(errorRegex));
+        if (errorIdx !== -1) {
+            compileResult = "❌error";
+            firstIssueLine = errorIdx + 1;
+        }
     }
     const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
         owner,
@@ -8680,7 +8690,7 @@ for (const file of readdirRecursively(".")) {
         continue;
     }
     rows.push({
-        url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
+        url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:${firstIssueLine}`,
         status: compileResult,
         ...jobMatch.groups,
     });
