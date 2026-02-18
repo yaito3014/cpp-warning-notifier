@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./
         with:
-          WORKER_URL: https://cpp-warning-notifier.ykakeyama3014.workers.dev
+          WORKER_URL: https://cpp-warning-notifier.iris-cpp.org
           RUN_ID: ${{ github.run_id }}
           JOB_ID: ${{ job.check_run_id }}
           STEP_REGEX: build-.*
