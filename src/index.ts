@@ -6,15 +6,24 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
-const [owner, repo] = process.env.GITHUB_REPOSITORY?.split("/")!;
-const pull_request_number = parseInt(process.env.GITHUB_REF?.split("/")[2]!);
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
 
-const artifact_regex = process.env.INPUT_ARTIFACT_REGEX!;
-const job_regex = process.env.INPUT_JOB_REGEX!;
-const step_regex = process.env.INPUT_STEP_REGEX!;
+const githubRepository = requireEnv("GITHUB_REPOSITORY");
+const githubRef = requireEnv("GITHUB_REF");
+
+const [owner, repo] = githubRepository.split("/");
+const pull_request_number = parseInt(githubRef.split("/")[2]);
+
+const artifact_regex = requireEnv("INPUT_ARTIFACT_REGEX");
+const job_regex = requireEnv("INPUT_JOB_REGEX");
+const step_regex = requireEnv("INPUT_STEP_REGEX");
 
 const appId = 1230093;
-const privateKey = process.env.INPUT_PRIVATE_KEY!;
+const privateKey = requireEnv("INPUT_PRIVATE_KEY");
 
 const app = new App({ appId, privateKey });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
@@ -22,48 +31,49 @@ const octokit = await app.getInstallationOctokit(installation.id);
 
 let body: string | null = null;
 
-const readdirRecursively = (dir: string, files: string[] = []) => {
-  const dirents = readdirSync(dir, { withFileTypes: true });
-  const dirs = [];
-  for (const dirent of dirents) {
-    if (dirent.isDirectory()) dirs.push(`${dir}/${dirent.name}`);
-    if (dirent.isFile()) files.push(`${dir}/${dirent.name}`);
-  }
-  for (const d of dirs) {
-    files = readdirRecursively(d, files);
+const readdirRecursively = (dir: string): string[] => {
+  const files: string[] = [];
+  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+    const path = `${dir}/${dirent.name}`;
+    if (dirent.isDirectory()) files.push(...readdirRecursively(path));
+    else if (dirent.isFile()) files.push(path);
   }
   return files;
 };
 
-type Row = Record<string, string>;
+interface Row {
+  url: string;
+  status: string;
+  [field: string]: string;
+}
 
-let rows: Row[] = [];
+const rows: Row[] = [];
 
 for (const file of readdirRecursively(".")) {
   console.log("looking", file, "deciding whether skip or not...");
 
   const artifactMatch = file.match(artifact_regex);
 
-  if (artifactMatch === null || artifactMatch.length === 0) {
+  if (artifactMatch === null) {
     continue;
   }
 
-  const runId = artifactMatch.groups!.runId;
-  const jobId = artifactMatch.groups!.jobId;
+  if (!artifactMatch.groups?.runId || !artifactMatch.groups?.jobId) {
+    console.log("artifact regex matched but missing runId/jobId named groups, skipping", file);
+    continue;
+  }
+  const { runId, jobId } = artifactMatch.groups;
 
   console.log("found", file, "detecting warnings...");
 
   const compilationOutput = readFileSync(file).toString();
 
-  const compileResult = (() => {
-    const warningMatch = compilationOutput.match(/warning( .\d+)?:/);
-    if (warningMatch && warningMatch.length > 0) return "⚠️warning";
-
-    const errorMatch = compilationOutput.match(/error( .\d+)?:/);
-    if (errorMatch && errorMatch.length > 0) return "❌error";
-
-    return "✅success";
-  })();
+  let compileResult = "✅success";
+  if (compilationOutput.match(/warning( .\d+)?:/)) {
+    compileResult = "⚠️warning";
+  } else if (compilationOutput.match(/error( .\d+)?:/)) {
+    compileResult = "❌error";
+  }
 
   const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
     owner,
@@ -71,22 +81,14 @@ for (const file of readdirRecursively(".")) {
     job_id: parseInt(jobId),
   });
 
-  const stepId = (() => {
-    let i = 0;
-    while (i < job.steps!.length) {
-      const step = job.steps![i];
-      // console.log(i, step);
-      if (
-        step.name.match(step_regex) &&
-        step.status === "completed" &&
-        step.conclusion === "success"
-      ) {
-        break;
-      }
-      ++i;
-    }
-    return i + 1;
-  })();
+  const steps = job.steps ?? [];
+  const stepIndex = steps.findIndex(
+    (step) =>
+      step.name.match(step_regex) &&
+      step.status === "completed" &&
+      step.conclusion === "success",
+  );
+  const stepId = (stepIndex === -1 ? steps.length : stepIndex) + 1;
 
   console.log(`stepId is ${stepId}`);
 
@@ -94,7 +96,7 @@ for (const file of readdirRecursively(".")) {
 
   const jobMatch = job.name.match(job_regex);
 
-  if (!jobMatch || jobMatch.length === 0) {
+  if (!jobMatch) {
     console.log("job match fail");
     continue;
   }
@@ -102,14 +104,26 @@ for (const file of readdirRecursively(".")) {
   rows.push({
     url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:1`,
     status: compileResult,
-    ...jobMatch.groups!,
+    ...jobMatch.groups,
   });
 }
 
 console.log("rows", rows);
 
-const ROW_HEADER_FIELDS: any[] = JSON.parse(process.env.INPUT_ROW_HEADERS!);
-const COLUMN_FIELD = process.env.INPUT_COLUMN_HEADER!;
+const ROW_HEADER_FIELDS: string[] = JSON.parse(requireEnv("INPUT_ROW_HEADERS"));
+const COLUMN_FIELD = requireEnv("INPUT_COLUMN_HEADER");
+
+class CompositeKeyMap<V> {
+  private map = new Map<string, V>();
+
+  get(keys: readonly string[]): V | undefined {
+    return this.map.get(JSON.stringify(keys));
+  }
+
+  set(keys: readonly string[], value: V): void {
+    this.map.set(JSON.stringify(keys), value);
+  }
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -123,15 +137,15 @@ function renderRows(
   rows: Row[],
   depth: number,
   columns: string[],
-  cellMap: Map<string, Row>,
+  cellMap: CompositeKeyMap<Row>,
 ): string[] {
   if (depth === ROW_HEADER_FIELDS.length) {
     const representative = rows[0];
-    const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => representative[f]));
+    const rowFields = ROW_HEADER_FIELDS.map((f) => representative[f]);
     const tds = columns.map((col) => {
-      const cell = cellMap.get(JSON.stringify([rowKey, col]));
+      const cell = cellMap.get([...rowFields, col]);
       if (!cell) return "<td></td>";
-      return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+      return `<td><a href="${escapeHtml(cell.url)}">${escapeHtml(cell.status)}</a></td>`;
     });
     return [`${tds.join("")}</tr>`];
   }
@@ -184,10 +198,10 @@ function generateTable(entries: Row[]): string {
     return 0;
   });
 
-  const cellMap = new Map<string, Row>();
+  const cellMap = new CompositeKeyMap<Row>();
   for (const entry of sorted) {
-    const rowKey = JSON.stringify(ROW_HEADER_FIELDS.map((f) => entry[f]));
-    cellMap.set(JSON.stringify([rowKey, entry[COLUMN_FIELD]]), entry);
+    const key = [...ROW_HEADER_FIELDS.map((f) => entry[f]), entry[COLUMN_FIELD]];
+    cellMap.set(key, entry);
   }
 
   const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
@@ -211,11 +225,11 @@ if (body) {
     issue_number: pull_request_number,
   });
 
-  const compareDate = (a: Date, b: Date) => a == b ? 0 : a < b ? -1 : 1;
+  const compareDate = (a: Date, b: Date) => a.getTime() - b.getTime();
 
-  const post_comment = () => {
+  const post_comment = async () => {
     console.log("leaving comment");
-    octokit.rest.issues.createComment({
+    await octokit.rest.issues.createComment({
       owner,
       repo,
       issue_number: pull_request_number,
@@ -224,7 +238,7 @@ if (body) {
   };
 
   const sorted_comments = comments
-    .filter((comment) => comment.user?.login == "cppwarningnotifier[bot]")
+    .filter((comment) => comment.user?.login === "cppwarningnotifier[bot]")
     .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
 
   if (sorted_comments.length > 0) {
@@ -240,9 +254,9 @@ if (body) {
         }
       `);
 
-      post_comment();
+      await post_comment();
     }
   } else {
-    post_comment();
+    await post_comment();
   }
 }
