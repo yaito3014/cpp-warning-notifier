@@ -8637,7 +8637,7 @@ const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
 });
 for (const job of jobList.jobs) {
     const job_id = job.id;
-    const { data: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+    const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
         owner,
         repo,
         job_id,

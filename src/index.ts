@@ -49,13 +49,13 @@ for (const job of jobList.jobs) {
 
   const job_id = job.id;
 
-  const { data: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+  const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
     owner,
     repo,
     job_id,
   });
 
-  const response = await fetch(redirectUrl as string);
+  const response = await fetch(redirectUrl);
   const result = await response.body?.getReader().read();
   const jobLog = result?.value as string;
 
