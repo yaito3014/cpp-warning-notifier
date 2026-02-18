@@ -8630,17 +8630,14 @@ const app = new App({ appId, privateKey });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installation.id);
 let body = null;
-const readdirRecursively = (dir, files = []) => {
-    const dirents = readdirSync(dir, { withFileTypes: true });
-    const dirs = [];
-    for (const dirent of dirents) {
+const readdirRecursively = (dir) => {
+    const files = [];
+    for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+        const path = `${dir}/${dirent.name}`;
         if (dirent.isDirectory())
-            dirs.push(`${dir}/${dirent.name}`);
-        if (dirent.isFile())
-            files.push(`${dir}/${dirent.name}`);
-    }
-    for (const d of dirs) {
-        files = readdirRecursively(d, files);
+            files.push(...readdirRecursively(path));
+        else if (dirent.isFile())
+            files.push(path);
     }
     return files;
 };

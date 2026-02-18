@@ -31,15 +31,12 @@ const octokit = await app.getInstallationOctokit(installation.id);
 
 let body: string | null = null;
 
-const readdirRecursively = (dir: string, files: string[] = []) => {
-  const dirents = readdirSync(dir, { withFileTypes: true });
-  const dirs = [];
-  for (const dirent of dirents) {
-    if (dirent.isDirectory()) dirs.push(`${dir}/${dirent.name}`);
-    if (dirent.isFile()) files.push(`${dir}/${dirent.name}`);
-  }
-  for (const d of dirs) {
-    files = readdirRecursively(d, files);
+const readdirRecursively = (dir: string): string[] => {
+  const files: string[] = [];
+  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+    const path = `${dir}/${dirent.name}`;
+    if (dirent.isDirectory()) files.push(...readdirRecursively(path));
+    else if (dirent.isFile()) files.push(path);
   }
   return files;
 };
