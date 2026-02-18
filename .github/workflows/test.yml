@@ -45,6 +45,7 @@ jobs:
         with:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           RUN_ID: ${{ github.run_id }}
+          JOB_ID: ${{ job.check_run_id }}
           STEP_REGEX: build-.*
           JOB_REGEX: compile \((?<osName>.+?), (?<osVersion>.+?), (?<config>.+?), (?<cppVersion>.+?), (?<vendorName>.+?), (?<vendorVersion>.+?)\)
           ROW_HEADERS: '["osName","osVersion","vendorName","vendorVersion","config"]'

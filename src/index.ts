@@ -14,7 +14,8 @@ function requireEnv(name: string): string {
 const githubRepository = requireEnv("GITHUB_REPOSITORY");
 const githubRef = requireEnv("GITHUB_REF");
 
-const run_id = parseInt(requireEnv("INPUT_RUN_ID"));
+const current_run_id = parseInt(requireEnv("INPUT_RUN_ID"));
+const current_job_id = parseInt(requireEnv("INPUT_JOB_ID"));
 
 const [owner, repo] = githubRepository.split("/");
 const pull_request_number = parseInt(githubRef.split("/")[2]);
@@ -42,14 +43,13 @@ const rows: Row[] = [];
 const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
   owner,
   repo,
-  run_id
+  run_id: current_run_id,
 });
 
 for (const job of jobList.jobs) {
-
   const job_id = job.id;
 
-  console.log(`retreiving job log for ${job_id}`)
+  if (job_id === current_job_id) continue;
 
   const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
     owner,
@@ -112,7 +112,7 @@ for (const job of jobList.jobs) {
   }
 
   rows.push({
-    url: `https://github.com/${owner}/${repo}/actions/runs/${run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
+    url: `https://github.com/${owner}/${repo}/actions/runs/${current_run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
     status: compileResult,
     ...jobMatch.groups,
   });

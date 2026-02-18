@@ -3,14 +3,16 @@ author: yaito3014
 description: Notifies about C++ warnings in GitHub Actions
 
 inputs:
+  RUN_ID:
+    requird: true
+  JOB_ID:
+    required: true
   PRIVATE_KEY:
     required: true
   JOB_REGEX:
     required: true
   STEP_REGEX:
     required: true
-  RUN_ID:
-    requird: true
   ROW_HEADERS:
     required: true
   COLUMN_HEADER:
