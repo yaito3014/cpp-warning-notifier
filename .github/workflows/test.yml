@@ -43,8 +43,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./
-        env:
-          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         with:
           RUN_ID: ${{ github.run_id }}
           JOB_ID: ${{ job.check_run_id }}
