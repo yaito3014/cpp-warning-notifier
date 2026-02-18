@@ -5,34 +5,32 @@ if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   process.exit(0);
 }
 
-function requireEnv(name: string): string {
+function require_env(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
-const githubRepository = requireEnv("GITHUB_REPOSITORY");
-const githubRef = requireEnv("GITHUB_REF");
+const github_repository = require_env("GITHUB_REPOSITORY");
+const github_ref = require_env("GITHUB_REF");
 
-const current_run_id = parseInt(requireEnv("INPUT_RUN_ID"));
-const current_job_id = parseInt(requireEnv("INPUT_JOB_ID"));
+const current_run_id = parseInt(require_env("INPUT_RUN_ID"));
+const current_job_id = parseInt(require_env("INPUT_JOB_ID"));
 
-const [owner, repo] = githubRepository.split("/");
-const pull_request_number = parseInt(githubRef.split("/")[2]);
+const [owner, repo] = github_repository.split("/");
+const pull_request_number = parseInt(github_ref.split("/")[2]);
 
-const ignore_no_marker = requireEnv("INPUT_IGNORE_NO_MARKER") === 'true';
+const ignore_no_marker = require_env("INPUT_IGNORE_NO_MARKER") === 'true';
 
-const job_regex = requireEnv("INPUT_JOB_REGEX");
-const step_regex = requireEnv("INPUT_STEP_REGEX");
+const job_regex = require_env("INPUT_JOB_REGEX");
+const step_regex = require_env("INPUT_STEP_REGEX");
 
-const appId = 1230093;
-const privateKey = requireEnv("APP_PRIVATE_KEY");
+const app_id = 1230093;
+const private_key = require_env("APP_PRIVATE_KEY");
 
-const app = new App({ appId, privateKey });
+const app = new App({ appId: app_id, privateKey: private_key });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installation.id);
-
-let body: string | null = null;
 
 interface Row {
   url: string;
@@ -42,96 +40,101 @@ interface Row {
 
 const rows: Row[] = [];
 
-const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
+const warning_regex = /warning( .\d+)?:/;
+const error_regex = /error( .\d+)?:/;
+
+function find_first_issue(
+  lines: string[],
+  regex: RegExp,
+  label: string,
+): { index: number; label: string } | null {
+  const index = lines.findIndex((line) => line.match(regex));
+  if (index === -1) return null;
+  console.log(`${label} index: ${index}, matched line: ${lines[index]}`);
+  return { index, label };
+}
+
+const { data: job_list } = await octokit.rest.actions.listJobsForWorkflowRun({
   owner,
   repo,
   run_id: current_run_id,
   per_page: 100,
 });
 
-for (const job of jobList.jobs) {
+for (const job of job_list.jobs) {
   const job_id = job.id;
 
   if (job_id === current_job_id) continue;
 
-  const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+  const { url: redirect_url } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
     owner,
     repo,
     job_id,
   });
 
-  const response = await fetch(redirectUrl);
+  const response = await fetch(redirect_url);
   if (!response.ok) {
     console.log(`failed to retrieve job log for ${job_id}`);
     continue;
   }
-  const jobLog = await response.text();
+  const job_log = await response.text();
 
-  const warningRegex = /warning( .\d+)?:/;
-  const errorRegex = /error( .\d+)?:/;
-
-  const lines = jobLog.split("\n");
+  const lines = job_log.split("\n");
   console.log(`total lines: ${lines.length}`);
 
   let offset = 0;
-  const offsetIdx = lines.findIndex((line) => line.match("CPPWARNINGNOTIFIER_LOG_MARKER"));
-  if (offsetIdx !== -1) {
-    offset = offsetIdx;
+  const offset_idx = lines.findIndex((line) => line.match("CPPWARNINGNOTIFIER_LOG_MARKER"));
+  if (offset_idx !== -1) {
+    offset = offset_idx;
   } else {
     if (ignore_no_marker) {
       continue;
     }
   }
 
-  let compileResult = "✅success";
-  let firstIssueLine = 1;
-  const warningIdx = lines.findIndex((line) => line.match(warningRegex));
-  console.log(`warningIdx: ${warningIdx}`);
-  if (warningIdx !== -1) {
-    compileResult = "⚠️warning";
-    firstIssueLine = warningIdx - offset + 1;
-    console.log(`matched warning line: ${lines[warningIdx]}`);
-  } else {
-    const errorIdx = lines.findIndex((line) => line.match(errorRegex));
-    console.log(`errorIdx: ${errorIdx}`);
-    if (errorIdx !== -1) {
-      compileResult = "❌error";
-      firstIssueLine = errorIdx - offset + 1;
-      console.log(`matched error line: ${lines[errorIdx]}`);
-    }
+  let compile_result = "✅success";
+  let first_issue_line = 1;
+
+  const issue =
+    find_first_issue(lines, warning_regex, "warning") ??
+    find_first_issue(lines, error_regex, "error");
+
+  if (issue) {
+    compile_result = issue.label === "warning" ? "⚠️warning" : "❌error";
+    first_issue_line = issue.index - offset + 1;
   }
 
   const steps = job.steps ?? [];
-  const stepIndex = steps.findIndex(
+  const step_index = steps.findIndex(
     (step) =>
       step.name.match(step_regex) &&
       step.status === "completed" &&
       step.conclusion === "success",
   );
-  const stepId = (stepIndex === -1 ? steps.length : stepIndex) + 1;
+  const step_id = (step_index === -1 ? steps.length : step_index) + 1;
 
-  console.log(`stepId is ${stepId}`);
+  console.log(`step_id is ${step_id}`);
 
   console.log(`job name is "${job.name}"`);
 
-  const jobMatch = job.name.match(job_regex);
+  const job_match = job.name.match(job_regex);
 
-  if (!jobMatch) {
+  if (!job_match) {
     console.log("job match fail");
     continue;
   }
 
   rows.push({
-    url: `https://github.com/${owner}/${repo}/actions/runs/${current_run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
-    status: compileResult,
-    ...jobMatch.groups,
+    url: `https://github.com/${owner}/${repo}/actions/runs/${current_run_id}/job/${job_id}#step:${step_id}:${first_issue_line}`,
+    status: compile_result,
+    ...job_match.groups,
   });
 }
 
 console.log("rows", rows);
 
-const ROW_HEADER_FIELDS: string[] = JSON.parse(requireEnv("INPUT_ROW_HEADERS"));
-const COLUMN_FIELD = requireEnv("INPUT_COLUMN_HEADER");
+const row_header_fields: string[] = JSON.parse(require_env("INPUT_ROW_HEADERS"));
+const column_field = require_env("INPUT_COLUMN_HEADER");
 
 class CompositeKeyMap<V> {
   private map = new Map<string, V>();
@@ -145,7 +148,7 @@ class CompositeKeyMap<V> {
   }
 }
 
-function escapeHtml(s: string): string {
+function escape_html(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -153,63 +156,49 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function renderRows(
+function render_rows(
   rows: Row[],
   depth: number,
   columns: string[],
-  cellMap: CompositeKeyMap<Row>,
+  cell_map: CompositeKeyMap<Row>,
 ): string[] {
-  if (depth === ROW_HEADER_FIELDS.length) {
+  if (depth === row_header_fields.length) {
     const representative = rows[0];
-    const rowFields = ROW_HEADER_FIELDS.map((f) => representative[f]);
+    const row_fields = row_header_fields.map((f) => representative[f]);
     const tds = columns.map((col) => {
-      const cell = cellMap.get([...rowFields, col]);
+      const cell = cell_map.get([...row_fields, col]);
       if (!cell) return "<td></td>";
-      return `<td><a href="${escapeHtml(cell.url)}">${escapeHtml(cell.status)}</a></td>`;
+      return `<td><a href="${escape_html(cell.url)}">${escape_html(cell.status)}</a></td>`;
     });
     return [`${tds.join("")}</tr>`];
   }
 
-  const field = ROW_HEADER_FIELDS[depth];
-  const groups = groupBy(rows, (r) => r[field] ?? "");
+  const field = row_header_fields[depth];
+  const groups = Object.entries(Object.groupBy(rows, (r) => r[field] ?? ""));
   const result: string[] = [];
 
   for (const [value, group] of groups) {
-    const childRows = renderRows(group, depth + 1, columns, cellMap);
-    const rowspan = childRows.length;
+    const child_rows = render_rows(group!, depth + 1, columns, cell_map);
+    const rowspan = child_rows.length;
     const th =
       rowspan > 1
-        ? `<th rowspan="${rowspan}">${escapeHtml(value)}</th>`
-        : `<th>${escapeHtml(value)}</th>`;
+        ? `<th rowspan="${rowspan}">${escape_html(value)}</th>`
+        : `<th>${escape_html(value)}</th>`;
 
-    childRows[0] = `${th}${childRows[0]}`;
-    result.push(...childRows);
+    child_rows[0] = `${th}${child_rows[0]}`;
+    result.push(...child_rows);
   }
 
   return result;
 }
 
-function groupBy<T>(items: T[], keyFn: (item: T) => string): [string, T[]][] {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const key = keyFn(item);
-    let group = map.get(key);
-    if (!group) {
-      group = [];
-      map.set(key, group);
-    }
-    group.push(item);
-  }
-  return [...map.entries()];
-}
-
-function generateTable(entries: Row[]): string {
-  const columns = [...new Set(entries.map((e) => e[COLUMN_FIELD] ?? ""))].sort(
+function generate_table(entries: Row[]): string {
+  const columns = [...new Set(entries.map((e) => e[column_field] ?? ""))].sort(
     (a, b) => Number(a) - Number(b),
   );
 
   const sorted = [...entries].sort((a, b) => {
-    for (const field of ROW_HEADER_FIELDS) {
+    for (const field of row_header_fields) {
       const av = a[field] ?? "";
       const bv = b[field] ?? "";
       if (av < bv) return -1;
@@ -218,22 +207,22 @@ function generateTable(entries: Row[]): string {
     return 0;
   });
 
-  const cellMap = new CompositeKeyMap<Row>();
+  const cell_map = new CompositeKeyMap<Row>();
   for (const entry of sorted) {
-    const key = [...ROW_HEADER_FIELDS.map((f) => entry[f]), entry[COLUMN_FIELD]];
-    cellMap.set(key, entry);
+    const key = [...row_header_fields.map((f) => entry[f]), entry[column_field]];
+    cell_map.set(key, entry);
   }
 
-  const theadCols = columns.map((v) => `<th>C++${v}</th>`).join("");
-  const thead = `<thead><tr><th colspan="${ROW_HEADER_FIELDS.length}">Environment</th>${theadCols}</tr></thead>`;
+  const thead_cols = columns.map((v) => `<th>C++${v}</th>`).join("");
+  const thead = `<thead><tr><th colspan="${row_header_fields.length}">Environment</th>${thead_cols}</tr></thead>`;
 
-  const rows = renderRows(sorted, 0, columns, cellMap);
-  const tbody = `<tbody>${rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
+  const table_rows = render_rows(sorted, 0, columns, cell_map);
+  const tbody = `<tbody>${table_rows.map((r) => `<tr>${r}`).join("")}</tbody>`;
 
   return `<table>${thead}${tbody}</table>`;
 }
 
-body ??= generateTable(rows);
+const body = generate_table(rows);
 
 console.log("body is", body);
 
@@ -244,8 +233,6 @@ if (body) {
     repo,
     issue_number: pull_request_number,
   });
-
-  const compareDate = (a: Date, b: Date) => a.getTime() - b.getTime();
 
   const post_comment = async () => {
     console.log("leaving comment");
@@ -259,20 +246,20 @@ if (body) {
 
   const sorted_comments = comments
     .filter((comment) => comment.user?.login === "cppwarningnotifier[bot]")
-    .toSorted((a, b) => compareDate(new Date(a.created_at), new Date(b.created_at)));
+    .toSorted((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   if (sorted_comments.length > 0) {
     const latest_comment = sorted_comments[sorted_comments.length - 1];
 
     if (body.includes("warning") || latest_comment.body?.includes("warning")) {
-      // minimize latest comment
-      await octokit.graphql(`
-        mutation {
-          minimizeComment(input: { subjectId: "${latest_comment.node_id}", classifier: OUTDATED }) {
+      await octokit.graphql(
+        `mutation($id: ID!) {
+          minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
             clientMutationId
           }
-        }
-      `);
+        }`,
+        { id: latest_comment.node_id },
+      );
 
       await post_comment();
     }
