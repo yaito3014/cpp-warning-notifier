@@ -8635,6 +8635,7 @@ const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
     owner,
     repo,
     run_id: current_run_id,
+    per_page: 100,
 });
 for (const job of jobList.jobs) {
     const job_id = job.id;
