@@ -30,7 +30,9 @@ jobs:
       - name: configure
         run: cmake -S. -Bbuild
       - name: build-${{ matrix.os.name }}
-        run: cmake --build build
+        run: |
+          echo "CPPWARNINGNOTIFIER_LOG_MARKER"
+          cmake --build build
 
   run-notifier:
     needs:
@@ -40,7 +42,6 @@ jobs:
       name: CppWarningNotifier
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
       - uses: ./
         with:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

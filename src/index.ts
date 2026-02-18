@@ -67,29 +67,30 @@ for (const job of jobList.jobs) {
   const warningRegex = /warning( .\d+)?:/;
   const errorRegex = /error( .\d+)?:/;
 
-  let compileResult = "✅success";
-  let firstIssueLine = 1;
   const lines = jobLog.split("\n");
   console.log(`total lines: ${lines.length}`);
+
+  let offset = 0;
+  const offsetIdx = lines.findIndex((line) => line.match("CPPWARNINGNOTIFIER_LOG_MARKER"));
+  if (offsetIdx !== -1) offset = offsetIdx;
+
+  let compileResult = "✅success";
+  let firstIssueLine = 1;
   const warningIdx = lines.findIndex((line) => line.match(warningRegex));
   console.log(`warningIdx: ${warningIdx}`);
   if (warningIdx !== -1) {
     compileResult = "⚠️warning";
-    firstIssueLine = warningIdx + 1;
+    firstIssueLine = warningIdx - offset + 1;
     console.log(`matched warning line: ${lines[warningIdx]}`);
   } else {
     const errorIdx = lines.findIndex((line) => line.match(errorRegex));
     console.log(`errorIdx: ${errorIdx}`);
     if (errorIdx !== -1) {
       compileResult = "❌error";
-      firstIssueLine = errorIdx + 1;
+      firstIssueLine = errorIdx - offset + 1;
       console.log(`matched error line: ${lines[errorIdx]}`);
     }
   }
-  // GitHub Actions step logs have a few preamble lines before the actual output
-  const GITHUB_ACTIONS_LOG_OFFSET = 3;
-  firstIssueLine += GITHUB_ACTIONS_LOG_OFFSET;
-  console.log(`compileResult: ${compileResult}, firstIssueLine: ${firstIssueLine} (includes offset ${GITHUB_ACTIONS_LOG_OFFSET})`);
 
   const steps = job.steps ?? [];
   const stepIndex = steps.findIndex(
