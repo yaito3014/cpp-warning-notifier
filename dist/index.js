@@ -8712,7 +8712,7 @@ function renderRows(rows, depth, columns, cellMap) {
             const cell = cellMap.get([...rowFields, col]);
             if (!cell)
                 return "<td></td>";
-            return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+            return `<td><a href="${escapeHtml(cell.url)}">${escapeHtml(cell.status)}</a></td>`;
         });
         return [`${tds.join("")}</tr>`];
     }

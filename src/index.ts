@@ -41,7 +41,11 @@ const readdirRecursively = (dir: string): string[] => {
   return files;
 };
 
-type Row = Record<string, string>;
+interface Row {
+  url: string;
+  status: string;
+  [field: string]: string;
+}
 
 let rows: Row[] = [];
 
@@ -141,7 +145,7 @@ function renderRows(
     const tds = columns.map((col) => {
       const cell = cellMap.get([...rowFields, col]);
       if (!cell) return "<td></td>";
-      return `<td><a href="${escapeHtml(cell["url"])}">${escapeHtml(cell["status"])}</a></td>`;
+      return `<td><a href="${escapeHtml(cell.url)}">${escapeHtml(cell.status)}</a></td>`;
     });
     return [`${tds.join("")}</tr>`];
   }
