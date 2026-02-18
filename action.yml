@@ -11,8 +11,8 @@ inputs:
     required: true
   STEP_REGEX:
     required: true
-  ARTIFACT_REGEX:
-    required: true
+  RUN_ID:
+    requird: true
   ROW_HEADERS:
     required: true
   COLUMN_HEADER:

@@ -50,7 +50,7 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          ARTIFACT_REGEX: compilation_(?<runId>\d+)_(?<jobId>\d+)_log
+          RUN_ID: ${{ github.run_id }}
           STEP_REGEX: build-.*
           JOB_REGEX: compile \((?<osName>.+?), (?<osVersion>.+?), (?<config>.+?), (?<cppVersion>.+?), (?<vendorName>.+?), (?<vendorVersion>.+?)\)
           ROW_HEADERS: '["osName","osVersion","vendorName","vendorVersion","config"]'

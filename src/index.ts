@@ -1,4 +1,3 @@
-import { readdirSync, readFileSync } from "fs";
 import { App } from "octokit";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
@@ -15,10 +14,11 @@ function requireEnv(name: string): string {
 const githubRepository = requireEnv("GITHUB_REPOSITORY");
 const githubRef = requireEnv("GITHUB_REF");
 
+const run_id = parseInt(requireEnv("INPUT_RUN_ID"));
+
 const [owner, repo] = githubRepository.split("/");
 const pull_request_number = parseInt(githubRef.split("/")[2]);
 
-const artifact_regex = requireEnv("INPUT_ARTIFACT_REGEX");
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 
@@ -31,16 +31,6 @@ const octokit = await app.getInstallationOctokit(installation.id);
 
 let body: string | null = null;
 
-const readdirRecursively = (dir: string): string[] => {
-  const files: string[] = [];
-  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
-    const path = `${dir}/${dirent.name}`;
-    if (dirent.isDirectory()) files.push(...readdirRecursively(path));
-    else if (dirent.isFile()) files.push(path);
-  }
-  return files;
-};
-
 interface Row {
   url: string;
   status: string;
@@ -49,31 +39,32 @@ interface Row {
 
 const rows: Row[] = [];
 
-for (const file of readdirRecursively(".")) {
-  console.log("looking", file, "deciding whether skip or not...");
+const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
+  owner,
+  repo,
+  run_id
+});
 
-  const artifactMatch = file.match(artifact_regex);
+for (const job of jobList.jobs) {
 
-  if (artifactMatch === null) {
-    continue;
-  }
+  const job_id = job.id;
 
-  if (!artifactMatch.groups?.runId || !artifactMatch.groups?.jobId) {
-    console.log("artifact regex matched but missing runId/jobId named groups, skipping", file);
-    continue;
-  }
-  const { runId, jobId } = artifactMatch.groups;
+  const { data: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+    owner,
+    repo,
+    job_id,
+  });
 
-  console.log("found", file, "detecting warnings...");
-
-  const compilationOutput = readFileSync(file).toString();
+  const response = await fetch(redirectUrl as string);
+  const result = await response.body?.getReader().read();
+  const jobLog = result?.value as string;
 
   const warningRegex = /warning( .\d+)?:/;
   const errorRegex = /error( .\d+)?:/;
 
   let compileResult = "✅success";
   let firstIssueLine = 1;
-  const lines = compilationOutput.split("\n");
+  const lines = jobLog.split("\n");
   console.log(`total lines: ${lines.length}`);
   const warningIdx = lines.findIndex((line) => line.match(warningRegex));
   console.log(`warningIdx: ${warningIdx}`);
@@ -94,12 +85,6 @@ for (const file of readdirRecursively(".")) {
   const GITHUB_ACTIONS_LOG_OFFSET = 3;
   firstIssueLine += GITHUB_ACTIONS_LOG_OFFSET;
   console.log(`compileResult: ${compileResult}, firstIssueLine: ${firstIssueLine} (includes offset ${GITHUB_ACTIONS_LOG_OFFSET})`);
-
-  const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
-    owner,
-    repo,
-    job_id: parseInt(jobId),
-  });
 
   const steps = job.steps ?? [];
   const stepIndex = steps.findIndex(

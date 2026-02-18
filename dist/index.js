@@ -1,4 +1,3 @@
-import { readFileSync, readdirSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
@@ -8619,9 +8618,9 @@ function requireEnv(name) {
 }
 const githubRepository = requireEnv("GITHUB_REPOSITORY");
 const githubRef = requireEnv("GITHUB_REF");
+const run_id = parseInt(requireEnv("INPUT_RUN_ID"));
 const [owner, repo] = githubRepository.split("/");
 const pull_request_number = parseInt(githubRef.split("/")[2]);
-const artifact_regex = requireEnv("INPUT_ARTIFACT_REGEX");
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 const appId = 1230093;
@@ -8630,36 +8629,27 @@ const app = new App({ appId, privateKey });
 const { data: installation } = await app.octokit.request("GET /repos/{owner}/{repo}/installation", { owner, repo });
 const octokit = await app.getInstallationOctokit(installation.id);
 let body = null;
-const readdirRecursively = (dir) => {
-    const files = [];
-    for (const dirent of readdirSync(dir, { withFileTypes: true })) {
-        const path = `${dir}/${dirent.name}`;
-        if (dirent.isDirectory())
-            files.push(...readdirRecursively(path));
-        else if (dirent.isFile())
-            files.push(path);
-    }
-    return files;
-};
 const rows = [];
-for (const file of readdirRecursively(".")) {
-    console.log("looking", file, "deciding whether skip or not...");
-    const artifactMatch = file.match(artifact_regex);
-    if (artifactMatch === null) {
-        continue;
-    }
-    if (!artifactMatch.groups?.runId || !artifactMatch.groups?.jobId) {
-        console.log("artifact regex matched but missing runId/jobId named groups, skipping", file);
-        continue;
-    }
-    const { runId, jobId } = artifactMatch.groups;
-    console.log("found", file, "detecting warnings...");
-    const compilationOutput = readFileSync(file).toString();
+const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
+    owner,
+    repo,
+    run_id
+});
+for (const job of jobList.jobs) {
+    const job_id = job.id;
+    const { data: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
+        owner,
+        repo,
+        job_id,
+    });
+    const response = await fetch(redirectUrl);
+    const result = await response.body?.getReader().read();
+    const jobLog = result?.value;
     const warningRegex = /warning( .\d+)?:/;
     const errorRegex = /error( .\d+)?:/;
     let compileResult = "✅success";
     let firstIssueLine = 1;
-    const lines = compilationOutput.split("\n");
+    const lines = jobLog.split("\n");
     console.log(`total lines: ${lines.length}`);
     const warningIdx = lines.findIndex((line) => line.match(warningRegex));
     console.log(`warningIdx: ${warningIdx}`);
@@ -8681,11 +8671,6 @@ for (const file of readdirRecursively(".")) {
     const GITHUB_ACTIONS_LOG_OFFSET = 3;
     firstIssueLine += GITHUB_ACTIONS_LOG_OFFSET;
     console.log(`compileResult: ${compileResult}, firstIssueLine: ${firstIssueLine} (includes offset ${GITHUB_ACTIONS_LOG_OFFSET})`);
-    const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
-        owner,
-        repo,
-        job_id: parseInt(jobId),
-    });
     const steps = job.steps ?? [];
     const stepIndex = steps.findIndex((step) => step.name.match(step_regex) &&
         step.status === "completed" &&
