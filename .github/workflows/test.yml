@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: configure
-        run: cmake -S. -Bbuild
+        run: cmake -Stest -Bbuild
       - name: build-${{ matrix.os.name }}
         run: |
           echo "CPPWARNINGNOTIFIER_LOG_MARKER"
