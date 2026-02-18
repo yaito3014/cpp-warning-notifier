@@ -48,7 +48,6 @@ jobs:
       - uses: actions/download-artifact@v7
       - uses: ./
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           RUN_ID: ${{ github.run_id }}
           STEP_REGEX: build-.*

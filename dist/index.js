@@ -8643,6 +8643,8 @@ for (const job of jobList.jobs) {
         job_id,
     });
     const response = await fetch(redirectUrl);
+    if (!response.ok)
+        console.log(`failed to retrieve job log for ${job_id}`);
     const jobLog = await response.text();
     const warningRegex = /warning( .\d+)?:/;
     const errorRegex = /error( .\d+)?:/;

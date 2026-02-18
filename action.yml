@@ -3,8 +3,6 @@ author: yaito3014
 description: Notifies about C++ warnings in GitHub Actions
 
 inputs:
-  GITHUB_TOKEN:
-    required: true
   PRIVATE_KEY:
     required: true
   JOB_REGEX:
