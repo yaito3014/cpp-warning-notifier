@@ -68,17 +68,22 @@ for (const file of readdirRecursively(".")) {
 
   const compilationOutput = readFileSync(file).toString();
 
+  const warningRegex = /warning( .\d+)?:/;
+  const errorRegex = /error( .\d+)?:/;
+
   let compileResult = "✅success";
   let firstIssueLine = 1;
   const lines = compilationOutput.split("\n");
-  if (compilationOutput.match(/warning( .\d+)?:/)) {
+  const warningIdx = lines.findIndex((line) => line.match(warningRegex));
+  if (warningIdx !== -1) {
     compileResult = "⚠️warning";
-    const idx = lines.findIndex((line) => line.match(/warning( .\d+)?:/));
-    if (idx !== -1) firstIssueLine = idx + 1;
-  } else if (compilationOutput.match(/error( .\d+)?:/)) {
-    compileResult = "❌error";
-    const idx = lines.findIndex((line) => line.match(/error( .\d+)?:/));
-    if (idx !== -1) firstIssueLine = idx + 1;
+    firstIssueLine = warningIdx + 1;
+  } else {
+    const errorIdx = lines.findIndex((line) => line.match(errorRegex));
+    if (errorIdx !== -1) {
+      compileResult = "❌error";
+      firstIssueLine = errorIdx + 1;
+    }
   }
 
   const { data: job } = await octokit.rest.actions.getJobForWorkflowRun({
