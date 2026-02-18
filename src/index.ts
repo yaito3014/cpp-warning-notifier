@@ -49,6 +49,8 @@ for (const job of jobList.jobs) {
 
   const job_id = job.id;
 
+  console.log(`retreiving job log for ${job_id}`)
+
   const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
     owner,
     repo,
@@ -56,7 +58,10 @@ for (const job of jobList.jobs) {
   });
 
   const response = await fetch(redirectUrl);
-  if (!response.ok) console.log(`failed to retrieve job log for ${job_id}`);
+  if (!response.ok) {
+    console.log(`failed to retrieve job log for ${job_id}`);
+    continue;
+  }
   const jobLog = await response.text();
 
   const warningRegex = /warning( .\d+)?:/;

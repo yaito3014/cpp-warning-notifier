@@ -8637,14 +8637,17 @@ const { data: jobList } = await octokit.rest.actions.listJobsForWorkflowRun({
 });
 for (const job of jobList.jobs) {
     const job_id = job.id;
+    console.log(`retreiving job log for ${job_id}`);
     const { url: redirectUrl } = await octokit.rest.actions.downloadJobLogsForWorkflowRun({
         owner,
         repo,
         job_id,
     });
     const response = await fetch(redirectUrl);
-    if (!response.ok)
+    if (!response.ok) {
         console.log(`failed to retrieve job log for ${job_id}`);
+        continue;
+    }
     const jobLog = await response.text();
     const warningRegex = /warning( .\d+)?:/;
     const errorRegex = /error( .\d+)?:/;
