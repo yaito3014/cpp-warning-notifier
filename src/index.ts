@@ -106,7 +106,7 @@ for (const job of jobList.jobs) {
   }
 
   rows.push({
-    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}#step:${stepId}:${firstIssueLine}`,
+    url: `https://github.com/${owner}/${repo}/actions/runs/${run_id}/job/${job_id}#step:${stepId}:${firstIssueLine}`,
     status: compileResult,
     ...jobMatch.groups,
   });
