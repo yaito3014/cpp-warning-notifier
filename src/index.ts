@@ -1,4 +1,4 @@
-import { App, Octokit } from "octokit";
+import { Octokit } from "octokit";
 
 if (!process.env.GITHUB_REF?.startsWith("refs/pull/")) {
   console.log("not a pull request, exiting.");
@@ -25,36 +25,14 @@ const ignore_no_marker = requireEnv("INPUT_IGNORE_NO_MARKER") === 'true';
 const job_regex = requireEnv("INPUT_JOB_REGEX");
 const step_regex = requireEnv("INPUT_STEP_REGEX");
 
-const appId = 1230093;
-const workerUrl = process.env.INPUT_WORKER_URL;
-const privateKey = process.env.INPUT_PRIVATE_KEY;
+const workerUrl = requireEnv("INPUT_WORKER_URL");
 
 // ── Authentication ──────────────────────────────────────────────────────────
-// Option A: WORKER_URL — exchange a GitHub OIDC token for an installation token
-//           via the Cloudflare Worker. Requires id-token: write on the job.
-// Option B: PRIVATE_KEY — authenticate directly as the GitHub App (legacy).
+// Exchange a GitHub OIDC token for an installation access token via the
+// Cloudflare Worker. Requires id-token: write on the job.
 
-let octokit: Octokit;
-
-if (workerUrl) {
-  console.log("Using Cloudflare Worker for authentication.");
-  const installationToken = await getInstallationTokenFromWorker(workerUrl);
-  octokit = new Octokit({ auth: installationToken });
-} else if (privateKey) {
-  console.log("Using GitHub App private key for authentication.");
-  const app = new App({ appId, privateKey });
-  const { data: installation } = await app.octokit.request(
-    "GET /repos/{owner}/{repo}/installation",
-    { owner, repo },
-  );
-  octokit = await app.getInstallationOctokit(installation.id);
-} else {
-  throw new Error(
-    "Either INPUT_WORKER_URL or INPUT_PRIVATE_KEY must be provided. " +
-      "Set WORKER_URL to use the Cloudflare Worker backend (recommended), " +
-      "or PRIVATE_KEY to use the GitHub App private key directly.",
-  );
-}
+const installationToken = await getInstallationTokenFromWorker(workerUrl);
+const octokit = new Octokit({ auth: installationToken });
 
 // ── Job log processing ──────────────────────────────────────────────────────
 
