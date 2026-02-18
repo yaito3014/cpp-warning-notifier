@@ -6,10 +6,12 @@ inputs:
   IGNORE_NO_MARKER:
     default: false
   RUN_ID:
-    requird: true
+    required: true
   JOB_ID:
     required: true
-  PRIVATE_KEY:
+  # Cloudflare Worker URL to exchange a GitHub OIDC token for an installation
+  # access token (requires id-token: write permission on the job)
+  WORKER_URL:
     required: true
   JOB_REGEX:
     required: true
@@ -21,5 +23,5 @@ inputs:
     required: true
 
 runs:
-  using: "node20"
-  main: "dist/index.js"
+  using: "node24"
+  main: "action/dist/index.js"

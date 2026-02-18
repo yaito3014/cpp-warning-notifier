@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: configure
-        run: cmake -S. -Bbuild
+        run: cmake -Stest -Bbuild
       - name: build-${{ matrix.os.name }}
         run: |
           echo "CPPWARNINGNOTIFIER_LOG_MARKER"
@@ -38,13 +38,15 @@ jobs:
     needs:
       - compile
     runs-on: ubuntu-latest
-    environment:
-      name: CppWarningNotifier
+    permissions:
+      id-token: write
+      pull-requests: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
       - uses: ./
         with:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          WORKER_URL: https://cpp-warning-notifier.iris-cpp.org
           RUN_ID: ${{ github.run_id }}
           JOB_ID: ${{ job.check_run_id }}
           STEP_REGEX: build-.*
